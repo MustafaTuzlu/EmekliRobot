@@ -14,6 +14,8 @@ data class Fix(
     val elapsedNanos: Long,
     val hasSpeed: Boolean,
     val speedMps: Double,
+    val hasBearing: Boolean = false,
+    val bearingDeg: Double = 0.0,
 )
 
 /** Hareket kararı için konum + doğruluk. */

@@ -13,6 +13,9 @@ import com.emekli.robot.core.ThermalGovernor
 import com.emekli.robot.core.ThermalState
 import com.emekli.robot.core.TimeFmt
 import com.emekli.robot.data.LogEntity
+import com.emekli.robot.core.BestFixWindow
+import com.emekli.robot.core.CornerDetector
+import com.emekli.robot.core.ParkedPosition
 import com.emekli.robot.sync.PayloadBuilder
 import com.emekli.robot.sync.SyncPolicy
 import org.junit.Assert.assertEquals
@@ -394,5 +397,109 @@ class CoreLogicTest {
         assertTrue(Config.HOT_OFF_C < Config.HOT_ON_C)
         assertTrue(Config.CRIT_OFF_C < Config.CRIT_ON_C)
         assertTrue(Config.CRIT_OFF_C > Config.HOT_OFF_C)
+    }
+
+    // ---- konum doğruluğu: pencere, köşe, park medyanı ----
+
+    private fun fixAt(sec: Double, acc: Double) =
+        Fix(41.0, 29.0, acc, (sec * 1e9).toLong(), hasSpeed = true, speedMps = 10.0)
+
+    @Test fun window_picksMostAccurateFix() {
+        val w = BestFixWindow<String>()
+        w.offer(fixAt(1.0, 12.0), "a")
+        w.offer(fixAt(2.0, 4.0), "b")
+        w.offer(fixAt(3.0, 9.0), "c")
+        assertEquals("b", w.take()!!.first)
+        assertTrue(w.isEmpty) // pencere sıfırlandı
+    }
+
+    @Test fun window_recentFixWinsWhenAccuracyIsSimilar() {
+        val w = BestFixWindow<String>()
+        w.offer(fixAt(1.0, 5.0), "old")
+        w.offer(fixAt(14.0, 6.0), "new") // 13 sn * 3 m ceza eskiyi geride bırakır
+        assertEquals("new", w.take()!!.first)
+    }
+
+    @Test fun window_emptyTakeReturnsNull() {
+        assertNull(BestFixWindow<String>().take())
+    }
+
+    @Test fun corner_angleDeltaWrapsAround() {
+        assertEquals(20.0, CornerDetector.angleDelta(350.0, 10.0), 0.001)
+        assertEquals(180.0, CornerDetector.angleDelta(0.0, 180.0), 0.001)
+        assertEquals(90.0, CornerDetector.angleDelta(270.0, 0.0), 0.001)
+    }
+
+    @Test fun corner_firesOnTurnOnlyWhenReliable() {
+        val c = CornerDetector()
+        assertFalse(c.isCorner(90.0, 40.0, 5.0, 10_000)) // referans yönü yok
+        c.onEmitted(0.0, 0)
+        assertFalse(c.isCorner(20.0, 40.0, 5.0, 10_000))  // 20° < 25°
+        assertTrue(c.isCorner(30.0, 40.0, 5.0, 10_000))   // viraj
+        assertFalse(c.isCorner(30.0, 5.0, 5.0, 10_000))   // yavaş: yön güvenilmez
+        assertFalse(c.isCorner(30.0, 40.0, 30.0, 10_000)) // zayıf doğruluk
+        assertFalse(c.isCorner(30.0, 40.0, 5.0, 2_000))   // 3 sn dolmadı
+        assertFalse(c.isCorner(null, 40.0, 5.0, 10_000))
+    }
+
+    @Test fun corner_wrapAroundNorthIsNotACorner() {
+        val c = CornerDetector()
+        c.onEmitted(355.0, 0)
+        assertFalse(c.isCorner(10.0, 40.0, 5.0, 10_000)) // 355 -> 10 yalnızca 15°
+    }
+
+    @Test fun parked_medianIgnoresOutlier() {
+        val p = ParkedPosition()
+        p.add(41.00000, 29.00000, 8.0, 1_000)
+        p.add(41.00001, 29.00001, 9.0, 2_000)
+        p.add(41.00030, 29.00030, 30.0, 3_000) // ~40 m sapma
+        p.add(41.00002, 29.00000, 7.0, 4_000)
+        p.add(41.00000, 29.00002, 8.0, 5_000)
+        val e = p.estimate(6_000)!!
+        assertEquals(41.00001, e.lat, 0.00002)
+        assertEquals(29.00001, e.lon, 0.00002)
+        assertEquals(5, e.count)
+    }
+
+    @Test fun parked_needsMinimumSamples() {
+        val p = ParkedPosition()
+        p.add(41.0, 29.0, 8.0, 1_000)
+        p.add(41.0, 29.0, 8.0, 2_000)
+        assertNull(p.estimate(3_000))
+        p.add(41.0, 29.0, 8.0, 3_000)
+        assertNotNull(p.estimate(4_000))
+    }
+
+    @Test fun parked_movedCarResetsRing() {
+        val p = ParkedPosition()
+        repeat(4) { p.add(41.0, 29.0, 8.0, it * 1_000L) }
+        p.add(41.01, 29.0, 8.0, 5_000) // ~1 km uzak
+        assertNull(p.estimate(6_000))
+    }
+
+    @Test fun parked_dropsStaleSamplesAndStaysBounded() {
+        val p = ParkedPosition()
+        repeat(50) { p.add(41.0, 29.0, 8.0, it * 1_000L) }
+        assertEquals(Config.PARKED_RING_SIZE, p.estimate(50_000)!!.count)
+        assertNull(p.estimate(50_000 + Config.PARKED_MAX_AGE_MS + 1))
+    }
+
+    @Test fun payload_motionFieldsFollowConfigFlag() {
+        val e = entity(LogTypes.KONUM, 41.0, 29.0).copy(speedKmh = 52.34, bearingDeg = 181.26)
+        val r = PayloadBuilder.record(e)
+        if (Config.SEND_MOTION_FIELDS) {
+            assertEquals(52.3, r.getDouble("hizKmh"), 0.001)
+            assertEquals(181.3, r.getDouble("yon"), 0.001)
+        } else {
+            assertFalse(r.has("hizKmh"))
+            assertFalse(r.has("yon"))
+        }
+    }
+
+    @Test fun config_sampleIntervalsFitFlushIntervals() {
+        assertTrue(Config.SAMPLE_INTERVAL_MS < Config.MOVING_INTERVAL_MS)
+        assertTrue(Config.HOT_SAMPLE_INTERVAL_MS < Config.HOT_INTERVAL_MS)
+        assertTrue(Config.CORNER_MIN_GAP_MS < Config.MOVING_INTERVAL_MS)
+        assertTrue(Config.GOOD_FIX_WAIT_MS < Config.FIX_TIMEOUT_MS)
     }
 }

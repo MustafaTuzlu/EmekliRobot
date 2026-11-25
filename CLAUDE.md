@@ -54,6 +54,7 @@ Enlem, boylam, doğruluk, pil yüzdesi, şarjda mı, pil sıcaklığı, konum za
 - **Durma:** `ARAC_DURUYOR` için 2 dk boyunca hem 5 km/h üstü hız hem 50 m'lik ilerleme olmaması gerekir (yavaş ama ilerleyen trafik durmuş sayılmaz).
 - Yürürken de (telefon cepte) 50 m yer değiştirme hareket sayılır; bu bilinen bir sonuçtur, test için de kullanışlıdır.
 - **Konum kalite kapısı (`FixFilter`):** GPS fix yokken telefon Wi-Fi/baz tahmini verir (doğruluk 100-600 m) ve haritada yüzlerce metrelik sahte sıçrama yaratır (saha verisiyle doğrulandı). Doğruluğu 50 m'den kötü konumlar `KONUM` kaydına ve hareket kararına girmez ("Zayıf konum: N reddedildi" sayacı ana ekranda). Önceki iyi konuma göre 150 km/s'i aşan sıçramalar da reddedilir (üst üste 3 kez gelirse referans yanlış sayılıp kabul edilir). Aynı fix'in iki kez iletilmesi (ARAC_HAREKET sonrası çift KONUM) elenir. Zayıf konum yalnızca 15 dk'lık `DURUM` kaydında, doğruluğuyla birlikte kullanılabilir. 60 sn iyi konum gelmezse tek `KONUM_ALINAMADI`.
+- **Konum doğruluğu (kayıt kalitesi):** Yalnızca gerçek GPS (`LocationManager.GPS_PROVIDER`, fused/Wi-Fi/baz yok). Sahte (mock) konum ve <4 uydulu fix reddedilir. Hareketteyken GPS 1 sn'de bir örneklenir (ISINMIS: 5 sn), her 15 sn'lik pencerenin en iyi fix'i (doğruluk + saniye başına 3 m eskilik cezası) `KONUM` yazılır (`BestFixWindow`). Yön ≥25° değişirse (hız ≥10 km/s, doğruluk ≤20 m, en az 3 sn arayla) pencere beklenmeden ek `KONUM` yazılır (`CornerDetector`). `KONUM`/`ARAC_*` kayıtlarının `konumZamani`/`elapsedRealtime` değeri fix'in kendi anıdır (`konumYasiMs` ≈ 0); `DURUM` ve diğerleri kayıt anıdır. `DURUM` konumu park halinde son ≤9 iyi fix'in medyanıdır (`ParkedPosition`, ≥3 örnek, 30 dk'dan eskiler atılır, 50 m'den fazla taşınınca sıfırlanır). `DURUM` için fix beklenirken önce ≤20 m aranır, 15 sn sonra ≤50 m kabul edilir, 60 sn'de gelmezse `KONUM_ALINAMADI`. Hız (`hizKmh`) ve yön (`yon`, hız ≥2 km/s iken) Room'da tutulur (`speedKmh`, `bearingDeg`, DB v2); sunucuya `Config.SEND_MOTION_FIELDS` true iken gider.
 - Durma sayacında yalnızca güvenilir konumlar "ilerleme" sayılır (kötü sıçramalar `ARAC_DURUYOR`'u geciktirmez).
 - `SARJ_*` ve `CIHAZ_*` kayıtları, debounce bekleme süresi (15/30 sn) değil değişimin ilk görüldüğü an olarak damgalanır (zaman ve `elapsedRealtime` birlikte geri çekilir).
 - **Şarj debounce:** Şarj durumu değişimi 15 sn sabit kalırsa kayıt atılır (gevşek kablo spam'ini önler).
@@ -85,7 +86,7 @@ Karar kaynağı pil sıcaklığıdır (`ACTION_BATTERY_CHANGED`). `PowerManager`
 
 ## Teknoloji
 
-Kotlin, minSdk 29, compileSdk/targetSdk 34, Foreground Service (`foregroundServiceType="location"`), FusedLocationProvider, Room, WorkManager, OkHttp/Retrofit. Arayüz minimum (durum ekranı). Paket adı: `com.emekli.robot`, uygulama adı: EmekliRobot.
+Kotlin, minSdk 29, compileSdk/targetSdk 34, Foreground Service (`foregroundServiceType="location"`), GPS (LocationManager), Room, WorkManager, OkHttp/Retrofit. Arayüz minimum (durum ekranı). Paket adı: `com.emekli.robot`, uygulama adı: EmekliRobot.
 
 ## Geliştirme Ortamı (Mac, Apple Silicon)
 

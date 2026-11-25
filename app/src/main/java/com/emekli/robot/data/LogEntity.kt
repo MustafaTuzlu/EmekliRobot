@@ -26,6 +26,9 @@ data class LogEntity(
     /** Kayıt oluşurken SystemClock.elapsedRealtime() (sunucu saat sapmasını bununla düzeltir). */
     val elapsedRealtimeMs: Long,
     val locationAgeMs: Long?,
+    /** GPS hızı (km/s) ve gidiş yönü (derece). Yön yalnızca hız >= 2 km/s iken dolu. */
+    val speedKmh: Double? = null,
+    val bearingDeg: Double? = null,
     /** Sunucu 422 ile reddettiyse true; tekrar gönderilmez. */
     val quarantined: Boolean = false,
 )

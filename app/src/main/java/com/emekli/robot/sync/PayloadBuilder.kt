@@ -34,6 +34,10 @@ object PayloadBuilder {
         put("konumZamani", e.eventTime)
         put("elapsedRealtime", e.elapsedRealtimeMs)
         putNullable("konumYasiMs", if (hasCoords) e.locationAgeMs else null)
+        if (Config.SEND_MOTION_FIELDS) {
+            putNullable("hizKmh", if (hasCoords) e.speedKmh?.let { Math.round(it * 10) / 10.0 } else null)
+            putNullable("yon", if (hasCoords) e.bearingDeg?.let { Math.round(it * 10) / 10.0 } else null)
+        }
     }
 
     private fun JSONObject.putNullable(key: String, value: Any?) {

@@ -13,6 +13,9 @@ import android.hardware.SensorManager
 import android.hardware.TriggerEvent
 import android.hardware.TriggerEventListener
 import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.Bundle
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -21,11 +24,14 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.emekli.robot.core.BatterySnapshot
+import com.emekli.robot.core.BestFixWindow
 import com.emekli.robot.core.Config
+import com.emekli.robot.core.CornerDetector
 import com.emekli.robot.core.Fix
 import com.emekli.robot.core.FixFilter
 import com.emekli.robot.core.LogTypes
 import com.emekli.robot.core.MovementDetector
+import com.emekli.robot.core.ParkedPosition
 import com.emekli.robot.core.Pos
 import com.emekli.robot.core.RuntimeState
 import com.emekli.robot.core.Speed
@@ -36,13 +42,6 @@ import com.emekli.robot.core.TimeFmt
 import com.emekli.robot.data.AppDatabase
 import com.emekli.robot.data.LogEntity
 import com.emekli.robot.sync.SyncPolicy
-import com.google.android.gms.location.CurrentLocationRequest
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -64,7 +63,8 @@ class TrackerEngine(
     private enum class GpsMode { OFF, MOVING, PROBE }
 
     private val main = Handler(Looper.getMainLooper())
-    private val fused = LocationServices.getFusedLocationProviderClient(ctx)
+    // Yalnızca gerçek GPS: fused sağlayıcı GPS yokken Wi-Fi/baz tahmini (100-600 m sapma) verdiği için kullanılmaz.
+    private val lm = ctx.getSystemService(LocationManager::class.java)
     private val dao = AppDatabase.get(ctx).logDao()
     private val alarms = ctx.getSystemService(AlarmManager::class.java)
     private val sensors = ctx.getSystemService(SensorManager::class.java)
@@ -85,11 +85,22 @@ class TrackerEngine(
     private var rejectedFixes = 0
     private var lastRejectedAccM: Double? = null
 
+    // Hareketteyken 1 sn'lik örnekler pencerede toplanır, her pencerenin en iyisi yazılır.
+    private val window = BestFixWindow<Location>()
+    private val corner = CornerDetector()
+    private val parked = ParkedPosition()
+    private var movePrev: Fix? = null
+    private var lastEmittedNanos = 0L
+
+    // DURUM için iyi fix bekleniyor (soğuk başlangıçta ilk fix genelde zayıf gelir)
+    private var pendingDurum = false
+    private var durumGotFix = false
+    private var durumGoodUntil = 0L
+
     private var gpsMode = GpsMode.OFF
     private var currentInterval = 0L
     private var probeUntil = 0L
     private var noFixWatching = false
-    private var heartbeatToken: CancellationTokenSource? = null
     private var started = false
 
     private val motionSensor: Sensor? = sensors.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION)
@@ -107,9 +118,8 @@ class TrackerEngine(
         rescheduleProbeAlarm()
         scheduleAlarm(ACTION_HEARTBEAT, Config.HEARTBEAT_MS)
         try {
-            fused.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null && lastLoc == null) acceptSilently(loc, seedAnchor = false)
-            }
+            val last = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            if (last != null && lastLoc == null) acceptSilently(last, seedAnchor = false)
         } catch (_: SecurityException) { }
         evaluateBattery()
         // Başlangıçta hemen bir DURUM kaydı (servisin çalıştığını gösterir).
@@ -123,9 +133,8 @@ class TrackerEngine(
         main.removeCallbacksAndMessages(null)
         runCatching { ctx.unregisterReceiver(batteryReceiver) }
         runCatching { motionSensor?.let { sensors.cancelTriggerSensor(motionListener, it) } }
-        heartbeatToken?.cancel()
-        heartbeatToken = null
         stopUpdates()
+        window.clear()
         if (wake.isHeld) wake.release()
         RuntimeState.update { it.copy(running = false, gpsMode = "KAPALI") }
     }
@@ -228,9 +237,22 @@ class TrackerEngine(
 
     // ---- GPS yönetimi --------------------------------------------------------------------------
 
-    private val locationCallback = object : LocationCallback() {
-        override fun onLocationResult(result: LocationResult) {
-            result.lastLocation?.let { onLocation(it) }
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) = onLocation(location)
+        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {}
+        @Deprecated("API 29'da soyut, uygulanmak zorunda")
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+    }
+
+    private fun flushIntervalMs() =
+        if (thermalStable.committed == ThermalState.ISINMIS) Config.HOT_INTERVAL_MS else Config.MOVING_INTERVAL_MS
+
+    private val flushRunnable = object : Runnable {
+        override fun run() {
+            if (!movement.moving || gpsMode != GpsMode.MOVING) return
+            flushWindow()
+            main.postDelayed(this, flushIntervalMs())
         }
     }
 
@@ -240,7 +262,7 @@ class TrackerEngine(
         val (mode, interval) = when {
             !gpsAllowed() -> GpsMode.OFF to 0L
             movement.moving ->
-                GpsMode.MOVING to (if (th == ThermalState.ISINMIS) Config.HOT_INTERVAL_MS else Config.MOVING_INTERVAL_MS)
+                GpsMode.MOVING to (if (th == ThermalState.ISINMIS) Config.HOT_SAMPLE_INTERVAL_MS else Config.SAMPLE_INTERVAL_MS)
             probing -> GpsMode.PROBE to Config.PROBE_INTERVAL_MS
             else -> GpsMode.OFF to 0L
         }
@@ -249,11 +271,15 @@ class TrackerEngine(
             return
         }
         stopUpdates()
+        main.removeCallbacks(flushRunnable)
+        window.clear()
         gpsMode = mode
         currentInterval = interval
         if (mode != GpsMode.OFF) startUpdates(interval)
         if (mode == GpsMode.MOVING) {
             lastFixElapsedMs = SystemClock.elapsedRealtime()
+            corner.reset()
+            main.postDelayed(flushRunnable, flushIntervalMs())
             startNoFixWatch()
         }
         publish()
@@ -261,21 +287,21 @@ class TrackerEngine(
     }
 
     private fun startUpdates(intervalMs: Long) {
-        val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
-            .setMinUpdateIntervalMillis(intervalMs)
-            .setWaitForAccurateLocation(false)
-            .build()
         try {
-            fused.requestLocationUpdates(req, locationCallback, Looper.getMainLooper())
+            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, intervalMs, 0f, locationListener, Looper.getMainLooper())
         } catch (e: SecurityException) {
             Log.w(TAG, "Konum izni yok", e)
+            gpsMode = GpsMode.OFF
+            currentInterval = 0
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "GPS sağlayıcı yok", e)
             gpsMode = GpsMode.OFF
             currentInterval = 0
         }
     }
 
     private fun stopUpdates() {
-        runCatching { fused.removeLocationUpdates(locationCallback) }
+        runCatching { lm.removeUpdates(locationListener) }
     }
 
     /** `windowMs` süreli kısa GPS penceresi açar. Zaten daha uzun bir pencere varsa onu kısaltmaz. */
@@ -318,50 +344,130 @@ class TrackerEngine(
         accuracyM = if (loc.hasAccuracy()) loc.accuracy.toDouble() else 9999.0,
         elapsedNanos = loc.elapsedRealtimeNanos,
         hasSpeed = loc.hasSpeed(), speedMps = loc.speed.toDouble(),
+        hasBearing = loc.hasBearing(), bearingDeg = loc.bearing.toDouble(),
     )
 
-    private fun onLocation(loc: Location) {
+    private class Gated(val fix: Fix, val speedPrev: Fix?)
+
+    @Suppress("DEPRECATION")
+    private fun isMock(loc: Location) = loc.isFromMockProvider
+
+    /** Uydu sayısı bilinmiyorsa -1. GPS sağlayıcı "satellites" ekstrasını verir. */
+    private fun satellites(loc: Location): Int = loc.extras?.getInt("satellites", -1) ?: -1
+
+    /** Kalite kapısı: sahte, uydusuz, tekrar, zayıf ve imkânsız sıçrama konumlar elenir. */
+    private fun gate(loc: Location): Gated? {
         val prev = lastFix
         val fix = buildFix(loc)
-
-        // Kalite kapısı: tekrar, zayıf (Wi-Fi/baz tahmini) ve imkânsız sıçrama konumlar kayda ve harekete girmez.
+        val sats = satellites(loc)
+        if (isMock(loc) || (sats in 0 until Config.MIN_SATELLITES)) {
+            rejectFix(fix)
+            return null
+        }
         var speedPrev: Fix? = prev
         when (FixFilter.check(prev, fix)) {
-            FixFilter.Verdict.DUPLICATE -> return
+            FixFilter.Verdict.DUPLICATE -> return null
             FixFilter.Verdict.POOR_ACCURACY -> {
                 rejectFix(fix)
-                return
+                return null
             }
             FixFilter.Verdict.IMPLAUSIBLE_JUMP -> {
                 if (++consecutiveJumps < Config.MAX_CONSECUTIVE_JUMPS) {
                     rejectFix(fix)
-                    return
+                    return null
                 }
                 speedPrev = null // üst üste sıçrama: eski referans yanlış sayılır, yeni konum kabul edilir
             }
             FixFilter.Verdict.OK -> {}
         }
         consecutiveJumps = 0
-
         lastLoc = loc
         lastFix = fix
         lastFixElapsedMs = SystemClock.elapsedRealtime()
         noFixFlagged = false
+        return Gated(fix, speedPrev)
+    }
 
+    private fun onLocation(loc: Location) {
+        val g = gate(loc) ?: return
+        if (movement.moving) onMovingSample(loc, g) else onProbeFix(loc, g)
+        publish()
+    }
+
+    /** Hareketteyken: örnek pencereye girer; yön belirgin değiştiyse (köşe) pencere beklenmeden yazılır. */
+    private fun onMovingSample(loc: Location, g: Gated) {
+        val fix = g.fix
+        if (g.speedPrev == null && movePrev != null) { // referans sıfırlandı
+            movePrev = null
+            window.clear()
+        }
+        val now = SystemClock.elapsedRealtime()
+        val spd = if (fix.hasSpeed) fix.speedMps * 3.6 else null
+        val brg = if (fix.hasBearing) fix.bearingDeg else null
+        val isCorner = thermalStable.committed == ThermalState.NORMAL &&
+            corner.isCorner(brg, spd, fix.accuracyM, now)
+        if (isCorner) {
+            window.clear()
+            window.offer(fix, loc)
+            flushWindow()
+            main.removeCallbacks(flushRunnable)
+            main.postDelayed(flushRunnable, flushIntervalMs())
+        } else {
+            window.offer(fix, loc)
+        }
+    }
+
+    /** Penceredeki en iyi fix'i hareket kararına verir ve KONUM olarak yazar. */
+    private fun flushWindow() {
+        val (loc, fix) = window.take() ?: return
+        if (fix.elapsedNanos == lastEmittedNanos) return
+        lastEmittedNanos = fix.elapsedNanos
+        val now = SystemClock.elapsedRealtime()
         val pos = Pos(fix.lat, fix.lon, fix.accuracyM)
-        when (movement.onFix(Speed.kmh(fix, speedPrev), pos, SystemClock.elapsedRealtime())) {
-            MovementDetector.Change.STARTED -> {
-                record(LogTypes.ARAC_HAREKET)
-                probeUntil = 0
-                applyMode()
-            }
+        val change = movement.onFix(Speed.kmh(fix, movePrev), pos, now)
+        movePrev = fix
+        when (change) {
             MovementDetector.Change.STOPPED -> {
-                record(LogTypes.ARAC_DURUYOR)
+                record(LogTypes.ARAC_DURUYOR, loc = loc, backdateMs = ageMs(loc))
+                parked.clear()
+                parked.add(fix.lat, fix.lon, fix.accuracyM, now - ageMs(loc))
                 applyMode() // GPS kapanır
             }
-            MovementDetector.Change.NONE -> if (movement.moving) record(LogTypes.KONUM)
+            MovementDetector.Change.STARTED -> {} // zaten hareketteydi, olmaz
+            MovementDetector.Change.NONE -> {
+                record(LogTypes.KONUM, loc = loc, backdateMs = ageMs(loc))
+                corner.onEmitted(if (fix.hasBearing) fix.bearingDeg else null, now)
+            }
         }
-        publish()
+    }
+
+    /** Durağanken (yoklama): her fix hemen hareket kararına girer; park konumu medyanı beslenir. */
+    private fun onProbeFix(loc: Location, g: Gated) {
+        val fix = g.fix
+        val now = SystemClock.elapsedRealtime()
+        parked.add(fix.lat, fix.lon, fix.accuracyM, now - ageMs(loc))
+        if (pendingDurum) durumGotFix = true
+
+        val pos = Pos(fix.lat, fix.lon, fix.accuracyM)
+        when (movement.onFix(Speed.kmh(fix, g.speedPrev), pos, now)) {
+            MovementDetector.Change.STARTED -> {
+                record(LogTypes.ARAC_HAREKET, loc = loc, backdateMs = ageMs(loc))
+                cancelPendingDurum()
+                probeUntil = 0
+                parked.clear()
+                movePrev = fix
+                lastEmittedNanos = fix.elapsedNanos
+                applyMode()
+                corner.onEmitted(if (fix.hasBearing) fix.bearingDeg else null, now)
+            }
+            else -> if (pendingDurum && durumReady(fix, now)) finishDurum()
+        }
+    }
+
+    /** DURUM için fix yeterince iyi mi: ≤20 m (ya da bekleme süresi doldu) ve park medyanı oluştu. */
+    private fun durumReady(fix: Fix, now: Long): Boolean {
+        val good = fix.accuracyM <= Config.GOOD_FIX_ACC_M || now >= durumGoodUntil
+        return good && (parked.estimate(now) != null || now >= durumGoodUntil)
     }
 
     private fun rejectFix(fix: Fix) {
@@ -424,29 +530,41 @@ class TrackerEngine(
         val age = lastLoc?.let { ageMs(it) }
         val needFix = gpsAllowed() && (age == null || age > Config.STALE_FIX_MS)
         if (!needFix) {
-            record(LogTypes.DURUM)
+            record(LogTypes.DURUM, useParked = true)
             startProbe(Config.HEARTBEAT_PROBE_WINDOW_MS)
             return
         }
-        heartbeatToken?.cancel()
-        val cts = CancellationTokenSource().also { heartbeatToken = it }
-        val req = CurrentLocationRequest.Builder()
-            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-            .setDurationMillis(Config.FIX_TIMEOUT_MS)
-            .setMaxUpdateAgeMillis(0)
-            .build()
-        try {
-            fused.getCurrentLocation(req, cts.token).addOnCompleteListener { task ->
-                val loc = if (task.isSuccessful) task.result else null
-                if (loc != null) acceptSilently(loc) else flagNoFix()
-                record(LogTypes.DURUM)
-                // Hareket sensörü kaçırmış olabilir: aynı GPS ısınmışken kısa bir hız kontrolü
-                startProbe(Config.HEARTBEAT_PROBE_WINDOW_MS)
-            }
-            main.postDelayed({ cts.cancel() }, Config.FIX_TIMEOUT_MS + 5_000)
-        } catch (e: SecurityException) {
-            flagNoFix()
-            record(LogTypes.DURUM)
+        // Fix'i yoklama penceresi getirir; iyi fix gelince (ya da süre dolunca) DURUM yazılır.
+        val now = SystemClock.elapsedRealtime()
+        pendingDurum = true
+        durumGotFix = false
+        durumGoodUntil = now + Config.GOOD_FIX_WAIT_MS
+        startProbe(Config.FIX_TIMEOUT_MS)
+        main.removeCallbacks(durumTimeout)
+        main.postDelayed(durumTimeout, Config.FIX_TIMEOUT_MS)
+    }
+
+    private val durumTimeout = Runnable {
+        if (pendingDurum) {
+            if (!durumGotFix) flagNoFix()
+            finishDurum()
+        }
+    }
+
+    private fun cancelPendingDurum() {
+        pendingDurum = false
+        main.removeCallbacks(durumTimeout)
+    }
+
+    private fun finishDurum() {
+        cancelPendingDurum()
+        record(LogTypes.DURUM, useParked = true)
+        // Hareket sensörü kaçırmış olabilir: GPS ısınmışken kısa bir hız kontrolü, sonra pencere kapanır
+        val now = SystemClock.elapsedRealtime()
+        if (!movement.moving && gpsAllowed()) {
+            probeUntil = now + Config.HEARTBEAT_PROBE_WINDOW_MS
+            main.removeCallbacks(probeEnd)
+            main.postDelayed(probeEnd, Config.HEARTBEAT_PROBE_WINDOW_MS + 500)
         }
     }
 
@@ -471,25 +589,55 @@ class TrackerEngine(
      * konumun kendi yaşı ayrıca `locationAgeMs` olarak gider. Son bilinen konum (yaşıyla birlikte)
      * park halindeki araç için doğru yerdir, bu yüzden eski olsa da eklenir.
      */
-    private fun record(type: String, withLocation: Boolean = true, backdateMs: Long = 0L) {
-        // Debounce'lu olaylar (şarj, sıcaklık) gerçek değişim anına geri çekilir; zaman ve elapsedRealtime birlikte kayar.
+    private fun record(
+        type: String,
+        withLocation: Boolean = true,
+        backdateMs: Long = 0L,
+        loc: Location? = lastLoc,
+        useParked: Boolean = false,
+    ) {
+        // Debounce'lu olaylar ve taze fix'li kayıtlar (KONUM, ARAC_*) gerçek an'a geri çekilir; zaman ve elapsedRealtime birlikte kayar.
         val back = backdateMs.coerceIn(0L, 300_000L)
+        val nowElapsed = SystemClock.elapsedRealtime()
         val wall = System.currentTimeMillis() - back
-        val loc = if (withLocation) lastLoc else null
+
+        var lat: Double? = null
+        var lon: Double? = null
+        var acc: Double? = null
+        var age: Long? = null
+        var speed: Double? = null
+        var bearing: Double? = null
+        if (withLocation) {
+            val est = if (useParked) parked.estimate(nowElapsed) else null
+            if (est != null) {
+                lat = est.lat; lon = est.lon; acc = est.accM
+                age = (nowElapsed - est.newestElapsedMs).coerceAtLeast(0)
+            } else if (loc != null) {
+                lat = loc.latitude; lon = loc.longitude
+                acc = loc.takeIf { it.hasAccuracy() }?.accuracy?.toDouble()
+                age = (ageMs(loc) - back).coerceAtLeast(0)
+                if (age <= 5_000 && loc.hasSpeed()) { // hız/yön yalnızca taze fix'te anlamlı
+                    speed = loc.speed * 3.6
+                    if (loc.hasBearing() && speed >= Config.MIN_BEARING_SPEED_KMH) bearing = loc.bearing.toDouble()
+                }
+            }
+        }
         val entity = LogEntity(
             uuid = UUID.randomUUID().toString(),
             logType = type,
-            lat = loc?.latitude,
-            lon = loc?.longitude,
-            accuracy = loc?.takeIf { it.hasAccuracy() }?.accuracy?.toDouble(),
+            lat = lat,
+            lon = lon,
+            accuracy = acc,
             batteryPct = battery.pct.takeIf { it >= 0 },
             charging = battery.plugged,
             batteryTempC = battery.tempC,
             moving = movement.moving,
             eventTime = TimeFmt.iso(wall),
             eventEpochMs = wall,
-            elapsedRealtimeMs = SystemClock.elapsedRealtime() - back,
-            locationAgeMs = loc?.let { (ageMs(it) - back).coerceAtLeast(0) },
+            elapsedRealtimeMs = nowElapsed - back,
+            locationAgeMs = age,
+            speedKmh = speed,
+            bearingDeg = bearing,
         )
         scope.launch {
             try {
@@ -542,7 +690,7 @@ class TrackerEngine(
                         battery.pct in 0 until Config.LOW_BATTERY_PCT && !battery.plugged -> "DURDURULDU (pil düşük)"
                         else -> "BEKLEMEDE (durağan, pil tasarrufu)"
                     }
-                    GpsMode.MOVING -> "AÇIK (${currentInterval / 1000} sn)"
+                    GpsMode.MOVING -> "AÇIK (${flushIntervalMs() / 1000} sn)"
                     GpsMode.PROBE -> "AÇIK (hareket kontrolü)"
                 },
                 thermal = thermalStable.committed,

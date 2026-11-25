@@ -21,6 +21,26 @@ object Config {
     const val HOT_INTERVAL_MS = 60_000L          // ISINMIS modda KONUM
     const val NO_FIX_MS = 60_000L                // 60 sn fix yok = KONUM_ALINAMADI
 
+    // Konum doğruluğu: GPS hızlı örneklenir, her pencerenin en iyi fix'i yazılır
+    const val SAMPLE_INTERVAL_MS = 1_000L        // hareketteyken GPS örnekleme aralığı
+    const val HOT_SAMPLE_INTERVAL_MS = 5_000L    // ISINMIS modda örnekleme aralığı
+    const val AGE_PENALTY_M_PER_S = 3.0          // pencerede eski fix'e saniye başına bu kadar metre ceza
+    const val MIN_SATELLITES = 4                 // uydu sayısı biliniyorsa bundan azı güvenilmez
+    const val GOOD_FIX_ACC_M = 20.0              // DURUM için aranan iyi doğruluk
+    const val GOOD_FIX_WAIT_MS = 15_000L         // bu süre iyi fix beklenir, sonra 50 m'lik fix de kabul
+    // Köşe noktaları: yön bu kadar değişince pencereyi beklemeden ek KONUM
+    const val CORNER_DEG = 25.0
+    const val CORNER_MIN_GAP_MS = 3_000L
+    const val CORNER_MIN_SPEED_KMH = 10.0        // düşük hızda yön güvenilmez
+    const val CORNER_MAX_ACC_M = 20.0
+    const val MIN_BEARING_SPEED_KMH = 2.0        // bundan yavaşken yön kayda yazılmaz
+    // Park halindeki konum: son N iyi fix'in medyanı
+    const val PARKED_RING_SIZE = 9
+    const val PARKED_MIN_SAMPLES = 3
+    const val PARKED_MAX_AGE_MS = 30 * 60_000L
+    // hizKmh/yon alanlarını sunucuya gönder (sunucu 937d90c ile hazır)
+    const val SEND_MOTION_FIELDS = true
+
     // Durağan
     const val HEARTBEAT_MS = 15 * 60_000L        // DURUM
     const val STALE_FIX_MS = 15 * 60_000L        // son konum bundan eskiyse yeni fix dene
