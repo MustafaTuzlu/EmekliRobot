@@ -127,6 +127,8 @@ class MainActivity : AppCompatActivity() {
             "yok"
         }
         b.append("Son konum   : ").append(konum).append(if (rt.noFix) "  ⚠ alınamıyor" else "").append('\n')
+        val zayif = rt.lastRejectedAccM?.let { String.format(Locale.US, " (son ±%.0f m)", it) } ?: ""
+        b.append("Zayıf konum : ").append(rt.rejectedFixes).append(" reddedildi").append(zayif).append('\n')
 
         val pil = rt.batteryPct?.let { "%$it" } ?: "?"
         val sicak = rt.batteryTempC?.let { String.format(Locale.US, "%.1f°C", it) } ?: "?"

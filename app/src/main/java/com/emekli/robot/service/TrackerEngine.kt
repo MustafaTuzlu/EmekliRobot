@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import com.emekli.robot.core.BatterySnapshot
 import com.emekli.robot.core.Config
 import com.emekli.robot.core.Fix
+import com.emekli.robot.core.FixFilter
 import com.emekli.robot.core.LogTypes
 import com.emekli.robot.core.MovementDetector
 import com.emekli.robot.core.Pos
@@ -80,6 +81,9 @@ class TrackerEngine(
     private var lastFix: Fix? = null
     private var lastFixElapsedMs = 0L
     private var noFixFlagged = false
+    private var consecutiveJumps = 0
+    private var rejectedFixes = 0
+    private var lastRejectedAccM: Double? = null
 
     private var gpsMode = GpsMode.OFF
     private var currentInterval = 0L
@@ -196,14 +200,20 @@ class TrackerEngine(
     }
 
     private fun onChargeChanged(plugged: Boolean) {
-        record(if (plugged) LogTypes.SARJ_BASLADI else LogTypes.SARJ_KESILDI)
+        // Kayıt, debounce beklemesi değil değişimin ilk görüldüğü an olarak damgalanır.
+        record(
+            if (plugged) LogTypes.SARJ_BASLADI else LogTypes.SARJ_KESILDI,
+            backdateMs = SystemClock.elapsedRealtime() - chargeStable.committedSince,
+        )
         rescheduleProbeAlarm()
         if (plugged) startProbe(Config.PROBE_MS) // kontak açıldı: araç kısa süre sonra hareket edebilir
         applyMode()
     }
 
     private fun onThermalChanged(from: ThermalState, to: ThermalState) {
-        ThermalGovernor.logTypeFor(from, to)?.let { record(it) }
+        ThermalGovernor.logTypeFor(from, to)?.let {
+            record(it, backdateMs = SystemClock.elapsedRealtime() - thermalStable.committedSince)
+        }
         applyMode()
         if (to == ThermalState.NORMAL) requestSync(false)
     }
@@ -313,13 +323,33 @@ class TrackerEngine(
     private fun onLocation(loc: Location) {
         val prev = lastFix
         val fix = buildFix(loc)
+
+        // Kalite kapısı: tekrar, zayıf (Wi-Fi/baz tahmini) ve imkânsız sıçrama konumlar kayda ve harekete girmez.
+        var speedPrev: Fix? = prev
+        when (FixFilter.check(prev, fix)) {
+            FixFilter.Verdict.DUPLICATE -> return
+            FixFilter.Verdict.POOR_ACCURACY -> {
+                rejectFix(fix)
+                return
+            }
+            FixFilter.Verdict.IMPLAUSIBLE_JUMP -> {
+                if (++consecutiveJumps < Config.MAX_CONSECUTIVE_JUMPS) {
+                    rejectFix(fix)
+                    return
+                }
+                speedPrev = null // üst üste sıçrama: eski referans yanlış sayılır, yeni konum kabul edilir
+            }
+            FixFilter.Verdict.OK -> {}
+        }
+        consecutiveJumps = 0
+
         lastLoc = loc
         lastFix = fix
         lastFixElapsedMs = SystemClock.elapsedRealtime()
         noFixFlagged = false
 
         val pos = Pos(fix.lat, fix.lon, fix.accuracyM)
-        when (movement.onFix(Speed.kmh(fix, prev), pos, SystemClock.elapsedRealtime())) {
+        when (movement.onFix(Speed.kmh(fix, speedPrev), pos, SystemClock.elapsedRealtime())) {
             MovementDetector.Change.STARTED -> {
                 record(LogTypes.ARAC_HAREKET)
                 probeUntil = 0
@@ -334,13 +364,24 @@ class TrackerEngine(
         publish()
     }
 
-    /** Hareket kararına karışmadan son konumu günceller (kalp atışı fix'i, son bilinen konum). */
+    private fun rejectFix(fix: Fix) {
+        rejectedFixes++
+        lastRejectedAccM = fix.accuracyM.takeIf { it < 9999.0 }
+        publish()
+    }
+
+    /**
+     * Hareket kararına karışmadan son konumu günceller (kalp atışı fix'i, son bilinen konum).
+     * Zayıf (>50 m) konum DURUM kaydında doğruluğuyla birlikte görünebilir (garajda/evde yine de bir fikir verir)
+     * ama referans nokta ve hız hesabı için kullanılmaz.
+     */
     private fun acceptSilently(loc: Location, seedAnchor: Boolean = true) {
+        val fix = buildFix(loc)
         lastLoc = loc
-        lastFix = buildFix(loc)
-        // Eski "son bilinen konum" referans olmaz: araç o zamandan beri taşınmış olabilir.
-        if (seedAnchor) {
-            movement.seedAnchor(Pos(loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy.toDouble() else 9999.0))
+        if (FixFilter.isReliable(fix)) {
+            lastFix = fix
+            // Eski "son bilinen konum" referans olmaz: araç o zamandan beri taşınmış olabilir.
+            if (seedAnchor) movement.seedAnchor(Pos(fix.lat, fix.lon, fix.accuracyM))
         }
         lastFixElapsedMs = SystemClock.elapsedRealtime()
         noFixFlagged = false
@@ -430,8 +471,10 @@ class TrackerEngine(
      * konumun kendi yaşı ayrıca `locationAgeMs` olarak gider. Son bilinen konum (yaşıyla birlikte)
      * park halindeki araç için doğru yerdir, bu yüzden eski olsa da eklenir.
      */
-    private fun record(type: String, withLocation: Boolean = true) {
-        val wall = System.currentTimeMillis()
+    private fun record(type: String, withLocation: Boolean = true, backdateMs: Long = 0L) {
+        // Debounce'lu olaylar (şarj, sıcaklık) gerçek değişim anına geri çekilir; zaman ve elapsedRealtime birlikte kayar.
+        val back = backdateMs.coerceIn(0L, 300_000L)
+        val wall = System.currentTimeMillis() - back
         val loc = if (withLocation) lastLoc else null
         val entity = LogEntity(
             uuid = UUID.randomUUID().toString(),
@@ -445,8 +488,8 @@ class TrackerEngine(
             moving = movement.moving,
             eventTime = TimeFmt.iso(wall),
             eventEpochMs = wall,
-            elapsedRealtimeMs = SystemClock.elapsedRealtime(),
-            locationAgeMs = loc?.let { ageMs(it) },
+            elapsedRealtimeMs = SystemClock.elapsedRealtime() - back,
+            locationAgeMs = loc?.let { (ageMs(it) - back).coerceAtLeast(0) },
         )
         scope.launch {
             try {
@@ -514,6 +557,8 @@ class TrackerEngine(
                 motionSensor = motionSensor != null,
                 motionTriggers = motionTriggers,
                 lastMotionElapsedMs = lastMotionElapsedMs,
+                rejectedFixes = rejectedFixes,
+                lastRejectedAccM = lastRejectedAccM,
             )
         }
     }

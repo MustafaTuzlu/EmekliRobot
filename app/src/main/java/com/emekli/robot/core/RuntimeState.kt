@@ -23,6 +23,9 @@ data class RuntimeSnapshot(
     val motionTriggers: Int = 0,
     /** Sensörün son tetiklenme anı (SystemClock.elapsedRealtime, ms). */
     val lastMotionElapsedMs: Long? = null,
+    /** Kalite filtresinin reddettiği zayıf/sıçrama konum sayısı ve sonuncunun doğruluğu. */
+    val rejectedFixes: Int = 0,
+    val lastRejectedAccM: Double? = null,
 )
 
 object RuntimeState {

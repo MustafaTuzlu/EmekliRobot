@@ -7,6 +7,10 @@ package com.emekli.robot.core
 class StableValue<T : Any>(initial: T, private val windowMs: Long) {
     var committed: T = initial
         private set
+
+    /** Kabul edilen değerin ilk gözlendiği an (debounce başlangıcı). Olay kaydı bu ana geri çekilir. */
+    var committedSince: Long = 0L
+        private set
     private var pending: T? = null
     private var since = 0L
 
@@ -25,6 +29,7 @@ class StableValue<T : Any>(initial: T, private val windowMs: Long) {
         }
         if (nowMs - since >= windowMs) {
             committed = candidate
+            committedSince = since
             pending = null
             return true
         }

@@ -2,6 +2,7 @@ package com.emekli.robot
 
 import com.emekli.robot.core.Config
 import com.emekli.robot.core.Fix
+import com.emekli.robot.core.FixFilter
 import com.emekli.robot.core.LogTypes
 import com.emekli.robot.core.MovementDetector
 import com.emekli.robot.core.MovementDetector.Change
@@ -202,6 +203,66 @@ class CoreLogicTest {
         assertFalse(m.moving)
         assertEquals(Change.NONE, m.onFix(0.2, at(230.0), 150_000))         // 30 m: hareket değil
         assertEquals(Change.STARTED, m.onFix(3.0, at(260.0), 160_000))      // 60 m
+    }
+
+    // ---- Konum kalite filtresi (gerçek saha verisiyle) ----
+
+    private fun fx(lat: Double, lon: Double, acc: Double, tSec: Double) =
+        Fix(lat, lon, acc, (tSec * 1e9).toLong(), false, 0.0)
+
+    @Test fun filter_networkEstimateIsRejected() {
+        // Saha kaydı 59: doğruluk 200 m (Wi-Fi/baz tahmini), gerçekte gidilmeyen yer
+        val prev = fx(41.0015356, 28.8711493, 8.0, 0.0)
+        val bad = fx(40.9958775, 28.8653239, 200.0, 23.0)
+        assertEquals(FixFilter.Verdict.POOR_ACCURACY, FixFilter.check(prev, bad))
+    }
+
+    @Test fun filter_accuracyBoundary() {
+        assertEquals(FixFilter.Verdict.OK, FixFilter.check(null, fx(41.0, 29.0, 50.0, 1.0)))
+        assertEquals(FixFilter.Verdict.POOR_ACCURACY, FixFilter.check(null, fx(41.0, 29.0, 50.1, 1.0)))
+        assertEquals(FixFilter.Verdict.POOR_ACCURACY, FixFilter.check(null, fx(41.0, 29.0, 9999.0, 1.0)))
+    }
+
+    @Test fun filter_impossibleJumpBetweenGoodFixesIsRejected() {
+        // ~800 m / 23 sn = ~125 km/s ama yolun gerçek hızı düşük; iki fix de "iyi" doğruluklu
+        val prev = fx(41.0015356, 28.8711493, 8.0, 0.0)
+        val jump = fx(40.9958775, 28.8653239, 8.0, 23.0)
+        assertEquals(FixFilter.Verdict.OK, FixFilter.check(prev, fx(41.0017, 28.8711493, 8.0, 15.0))) // 18 m: normal
+        assertEquals(FixFilter.Verdict.IMPLAUSIBLE_JUMP, FixFilter.check(prev, fx(40.9908, 28.8711493, 8.0, 10.0))) // ~1.2 km / 10 sn
+        // 800 m / 23 sn = 125 km/s sınırın altında kaldığı için kabul edilir (150 km/s eşiği)
+        assertEquals(FixFilter.Verdict.OK, FixFilter.check(prev, jump))
+    }
+
+    @Test fun filter_longGapIsNotAJump() {
+        val prev = fx(41.0015356, 28.8711493, 8.0, 0.0)
+        // GPS kapalıyken araç 800 m gitti, 10 dk sonra ilk fix: sıçrama değil
+        assertEquals(FixFilter.Verdict.OK, FixFilter.check(prev, fx(40.9958775, 28.8653239, 8.0, 600.0)))
+    }
+
+    @Test fun filter_sameFixDeliveredTwiceIsDuplicate() {
+        // Saha kayıtları 46/47 ve 74/75: ARAC_HAREKET'ten hemen sonra aynı konum KONUM olarak tekrar yazılmıştı
+        val a = fx(41.0058384, 28.8701308, 7.0, 100.0)
+        assertEquals(FixFilter.Verdict.DUPLICATE, FixFilter.check(a, a.copy()))
+        assertEquals(FixFilter.Verdict.OK, FixFilter.check(a, a.copy(elapsedNanos = a.elapsedNanos + 15_000_000_000L)))
+    }
+
+    @Test fun movement_poorFixesDoNotKeepVehicleMoving() {
+        // Saha: kötü doğruluklu sıçrama konumlar "ilerleme" sayılıp ARAC_DURUYOR'u engelliyordu
+        val m = MovementDetector()
+        m.onFix(0.0, at(0.0), 0)
+        m.onFix(40.0, at(100.0), 5_000); m.onFix(40.0, at(200.0), 10_000)
+        assertTrue(m.moving)
+        assertEquals(Change.NONE, m.onFix(0.0, at(1_000.0, acc = 100.0), 100_000))
+        assertEquals(Change.STOPPED, m.onFix(0.0, at(2_000.0, acc = 100.0), 135_000))
+        assertFalse(m.moving)
+    }
+
+    @Test fun stable_committedSinceIsFirstObservation() {
+        val v = StableValue(false, 15_000)
+        v.update(true, 1_000)       // ilk gözlem
+        v.update(true, 9_000)
+        assertTrue(v.update(true, 16_500))
+        assertEquals(1_000L, v.committedSince)  // kayıt 15 sn geç değil, ilk görüldüğü ana çekilir
     }
 
     // ---- Hız hesabı ----

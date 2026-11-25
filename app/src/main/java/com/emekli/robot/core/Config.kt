@@ -12,6 +12,11 @@ object Config {
     const val MOVE_DISTANCE_M = 50.0
     const val MAX_RELIABLE_ACC_M = 50.0          // doğruluğu bundan kötü fix yer değiştirme için güvenilmez sayılır
     const val MIN_DISPLACED_SPEED_KMH = 2.0      // GPS sapmasını (Doppler hızı ~0) hareketten ayırır
+
+    // Konum kalite filtresi (Wi-Fi/baz istasyonu tahminleri ve sıçramalar kayda girmesin)
+    const val MAX_PLAUSIBLE_KMH = 150.0          // iki iyi fix arasında bundan hızlı "gidiş" sıçramadır
+    const val JUMP_MIN_DISTANCE_M = 100.0        // daha kısa mesafeler sıçrama sayılmaz
+    const val MAX_CONSECUTIVE_JUMPS = 3          // üst üste bu kadar sıçrama: referans yanlış, yeni konumu kabul et
     const val MOVING_INTERVAL_MS = 15_000L       // hareketteyken KONUM
     const val HOT_INTERVAL_MS = 60_000L          // ISINMIS modda KONUM
     const val NO_FIX_MS = 60_000L                // 60 sn fix yok = KONUM_ALINAMADI

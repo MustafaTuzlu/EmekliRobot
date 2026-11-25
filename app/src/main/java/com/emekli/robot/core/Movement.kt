@@ -102,7 +102,8 @@ class MovementDetector {
         }
 
         if (fast) lastFastMs = nowMs
-        if (pos != null) {
+        // Yalnızca güvenilir konumlar "ilerleme" sayılır: kötü doğruluklu sıçramalar durmayı geciktirmesin.
+        if (pos != null && pos.accM <= Config.MAX_RELIABLE_ACC_M) {
             val p = progress
             if (p == null || Speed.distanceM(p, pos) >= Config.MOVE_DISTANCE_M) {
                 progress = pos
@@ -111,7 +112,8 @@ class MovementDetector {
         }
         if (nowMs - lastFastMs >= Config.STOP_AFTER_MS && nowMs - lastProgressMs >= Config.STOP_AFTER_MS) {
             moving = false
-            anchor = pos ?: progress ?: anchor
+            // Yeni referans: durulan nokta. Zayıf (>50 m) bir konum referans yapılmaz.
+            anchor = pos?.takeIf { it.accM <= Config.MAX_RELIABLE_ACC_M } ?: progress ?: anchor
             progress = null
             return Change.STOPPED
         }
