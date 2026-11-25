@@ -1,8 +1,24 @@
+import java.security.MessageDigest
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
 }
+
+// Ayar ekranı şifresi repoda tutulmaz: gitignore'lu local.properties'ten okunur,
+// uygulamaya yalnızca tuzlu SHA-256 özeti girer.
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val settingsPin: String = localProps.getProperty("SETTINGS_PIN")
+    ?: throw GradleException("local.properties içinde SETTINGS_PIN tanımlı değil")
+val pinSalt = "emekli-robot-v1:"
+val pinHash: String = MessageDigest.getInstance("SHA-256")
+    .digest((pinSalt + settingsPin).toByteArray())
+    .joinToString("") { "%02x".format(it) }
 
 android {
     namespace = "com.emekli.robot"
@@ -14,6 +30,13 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        buildConfigField("String", "SETTINGS_PIN_SALT", "\"$pinSalt\"")
+        buildConfigField("String", "SETTINGS_PIN_HASH", "\"$pinHash\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
@@ -46,6 +69,9 @@ dependencies {
 
     // Sunucu isteği
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // API anahtarı için şifreli depo
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Konum
     implementation("com.google.android.gms:play-services-location:21.3.0")
