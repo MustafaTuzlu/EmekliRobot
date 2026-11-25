@@ -8,6 +8,10 @@ object Config {
     const val MOVE_SPEED_KMH = 5.0
     const val START_CONFIRM_SAMPLES = 2          // art arda hızlı örnek sayısı (GPS sıçramasına karşı)
     const val STOP_AFTER_MS = 120_000L           // 2 dk yavaş = ARAC_DURUYOR
+    // Yer değiştirme kuralı: hız ne olursa olsun referans noktadan bu kadar uzaklaşırsa hareket (tek örnek, hemen).
+    const val MOVE_DISTANCE_M = 50.0
+    const val MAX_RELIABLE_ACC_M = 50.0          // doğruluğu bundan kötü fix yer değiştirme için güvenilmez sayılır
+    const val MIN_DISPLACED_SPEED_KMH = 2.0      // GPS sapmasını (Doppler hızı ~0) hareketten ayırır
     const val MOVING_INTERVAL_MS = 15_000L       // hareketteyken KONUM
     const val HOT_INTERVAL_MS = 60_000L          // ISINMIS modda KONUM
     const val NO_FIX_MS = 60_000L                // 60 sn fix yok = KONUM_ALINAMADI
@@ -18,7 +22,13 @@ object Config {
     const val FIX_TIMEOUT_MS = 60_000L
     const val PROBE_MS = 60_000L                 // hareket var mı diye kısa GPS penceresi
     const val PROBE_INTERVAL_MS = 5_000L
-    const val FALLBACK_PROBE_MS = 3 * 60_000L    // hareket sensörü yoksa
+    const val FALLBACK_PROBE_MS = 3 * 60_000L    // hareket sensörü yoksa (şarj yokken)
+    const val FALLBACK_PROBE_WINDOW_MS = 30_000L
+    // Kontak açıkken (şarj takılı) hareket sensörüne güvenmeden düzenli GPS yoklaması
+    const val PLUGGED_PROBE_PERIOD_MS = 60_000L
+    const val PLUGGED_PROBE_WINDOW_MS = 20_000L
+    // 15 dk'lık DURUM kaydından sonra hareket var mı diye kısa GPS penceresi
+    const val HEARTBEAT_PROBE_WINDOW_MS = 30_000L
 
     // Şarj / pil
     const val CHARGE_DEBOUNCE_MS = 15_000L

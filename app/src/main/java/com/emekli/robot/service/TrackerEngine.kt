@@ -25,6 +25,7 @@ import com.emekli.robot.core.Config
 import com.emekli.robot.core.Fix
 import com.emekli.robot.core.LogTypes
 import com.emekli.robot.core.MovementDetector
+import com.emekli.robot.core.Pos
 import com.emekli.robot.core.RuntimeState
 import com.emekli.robot.core.Speed
 import com.emekli.robot.core.StableValue
@@ -87,6 +88,8 @@ class TrackerEngine(
     private var started = false
 
     private val motionSensor: Sensor? = sensors.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION)
+    private var motionTriggers = 0
+    private var lastMotionElapsedMs: Long? = null
 
     // ---- yaşam döngüsü -------------------------------------------------------------------------
 
@@ -96,11 +99,11 @@ class TrackerEngine(
             ctx, batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         armMotion()
-        if (motionSensor == null) scheduleAlarm(ACTION_PROBE, Config.FALLBACK_PROBE_MS)
+        rescheduleProbeAlarm()
         scheduleAlarm(ACTION_HEARTBEAT, Config.HEARTBEAT_MS)
         try {
             fused.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null && lastLoc == null) acceptSilently(loc)
+                if (loc != null && lastLoc == null) acceptSilently(loc, seedAnchor = false)
             }
         } catch (_: SecurityException) { }
         evaluateBattery()
@@ -130,9 +133,33 @@ class TrackerEngine(
                 doHeartbeat()
             }
             ACTION_PROBE -> {
-                scheduleAlarm(ACTION_PROBE, Config.FALLBACK_PROBE_MS)
-                startProbe()
+                rescheduleProbeAlarm()
+                scheduleProbeNow()
             }
+        }
+    }
+
+    /**
+     * Hareket sensörüne güvenmeyen yedek yoklama:
+     * - şarj takılıyken (kontak açık) her dakika kısa GPS penceresi,
+     * - şarj yokken yalnızca cihazda hareket sensörü yoksa 3 dk'da bir.
+     * Şarj yokken ve sensör varsa alarm iptal edilir (GPS tamamen beklemede kalır).
+     */
+    private fun rescheduleProbeAlarm() {
+        val delay = when {
+            chargeStable.committed -> Config.PLUGGED_PROBE_PERIOD_MS
+            motionSensor == null -> Config.FALLBACK_PROBE_MS
+            else -> null
+        }
+        if (delay != null) scheduleAlarm(ACTION_PROBE, delay) else cancelAlarm(ACTION_PROBE)
+    }
+
+    /** Alarmla gelen yoklama. Isınmışken (NORMAL değilse) şarjlı yoklama atlanır, GPS yorulmaz. */
+    private fun scheduleProbeNow() {
+        if (chargeStable.committed) {
+            if (thermalStable.committed == ThermalState.NORMAL) startProbe(Config.PLUGGED_PROBE_WINDOW_MS)
+        } else {
+            startProbe(Config.FALLBACK_PROBE_WINDOW_MS)
         }
     }
 
@@ -169,7 +196,8 @@ class TrackerEngine(
 
     private fun onChargeChanged(plugged: Boolean) {
         record(if (plugged) LogTypes.SARJ_BASLADI else LogTypes.SARJ_KESILDI)
-        if (plugged) startProbe() // kontak açıldı: araç kısa süre sonra hareket edebilir
+        rescheduleProbeAlarm()
+        if (plugged) startProbe(Config.PROBE_MS) // kontak açıldı: araç kısa süre sonra hareket edebilir
         applyMode()
     }
 
@@ -239,13 +267,16 @@ class TrackerEngine(
         runCatching { fused.removeLocationUpdates(locationCallback) }
     }
 
-    private fun startProbe() {
+    /** `windowMs` süreli kısa GPS penceresi açar. Zaten daha uzun bir pencere varsa onu kısaltmaz. */
+    private fun startProbe(windowMs: Long = Config.PROBE_MS) {
         if (movement.moving || !gpsAllowed()) return
-        probeUntil = SystemClock.elapsedRealtime() + Config.PROBE_MS
-        wake.acquire(Config.PROBE_MS + 10_000)
+        val now = SystemClock.elapsedRealtime()
+        probeUntil = maxOf(probeUntil, now + windowMs)
+        val remaining = probeUntil - now
+        wake.acquire(remaining + 10_000)
         applyMode()
         main.removeCallbacks(probeEnd)
-        main.postDelayed(probeEnd, Config.PROBE_MS + 500)
+        main.postDelayed(probeEnd, remaining + 500)
     }
 
     private val probeEnd = Runnable { applyMode() }
@@ -255,7 +286,10 @@ class TrackerEngine(
     private val motionListener = object : TriggerEventListener() {
         override fun onTrigger(event: TriggerEvent?) {
             main.post {
+                motionTriggers++
+                lastMotionElapsedMs = SystemClock.elapsedRealtime()
                 startProbe()
+                publish()
                 main.postDelayed({ armMotion() }, 30_000) // art arda tetiklenmeyi sınırla
             }
         }
@@ -283,7 +317,8 @@ class TrackerEngine(
         lastFixElapsedMs = SystemClock.elapsedRealtime()
         noFixFlagged = false
 
-        when (movement.onSpeed(Speed.kmh(fix, prev), SystemClock.elapsedRealtime())) {
+        val pos = Pos(fix.lat, fix.lon, fix.accuracyM)
+        when (movement.onFix(Speed.kmh(fix, prev), pos, SystemClock.elapsedRealtime())) {
             MovementDetector.Change.STARTED -> {
                 record(LogTypes.ARAC_HAREKET)
                 probeUntil = 0
@@ -299,9 +334,13 @@ class TrackerEngine(
     }
 
     /** Hareket kararına karışmadan son konumu günceller (kalp atışı fix'i, son bilinen konum). */
-    private fun acceptSilently(loc: Location) {
+    private fun acceptSilently(loc: Location, seedAnchor: Boolean = true) {
         lastLoc = loc
         lastFix = buildFix(loc)
+        // Eski "son bilinen konum" referans olmaz: araç o zamandan beri taşınmış olabilir.
+        if (seedAnchor) {
+            movement.seedAnchor(Pos(loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy.toDouble() else 9999.0))
+        }
         lastFixElapsedMs = SystemClock.elapsedRealtime()
         noFixFlagged = false
         publish()
@@ -344,6 +383,7 @@ class TrackerEngine(
         val needFix = gpsAllowed() && (age == null || age > Config.STALE_FIX_MS)
         if (!needFix) {
             record(LogTypes.DURUM)
+            startProbe(Config.HEARTBEAT_PROBE_WINDOW_MS)
             return
         }
         heartbeatToken?.cancel()
@@ -358,6 +398,8 @@ class TrackerEngine(
                 val loc = if (task.isSuccessful) task.result else null
                 if (loc != null) acceptSilently(loc) else flagNoFix()
                 record(LogTypes.DURUM)
+                // Hareket sensörü kaçırmış olabilir: aynı GPS ısınmışken kısa bir hız kontrolü
+                startProbe(Config.HEARTBEAT_PROBE_WINDOW_MS)
             }
             main.postDelayed({ cts.cancel() }, Config.FIX_TIMEOUT_MS + 5_000)
         } catch (e: SecurityException) {
@@ -431,6 +473,15 @@ class TrackerEngine(
         }
     }
 
+    private fun cancelAlarm(action: String) {
+        val pi = PendingIntent.getForegroundService(
+            ctx, action.hashCode(), Intent(ctx, TrackerService::class.java).setAction(action),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        alarms.cancel(pi)
+        pi.cancel()
+    }
+
     private fun publish() {
         val loc = lastLoc
         RuntimeState.update {
@@ -457,6 +508,9 @@ class TrackerEngine(
                 accuracyM = loc?.takeIf { l -> l.hasAccuracy() }?.accuracy?.toDouble(),
                 fixElapsedMs = if (loc != null) lastFixElapsedMs else null,
                 noFix = noFixFlagged,
+                motionSensor = motionSensor != null,
+                motionTriggers = motionTriggers,
+                lastMotionElapsedMs = lastMotionElapsedMs,
             )
         }
     }

@@ -42,6 +42,7 @@ Enlem, boylam, doğruluk, pil yüzdesi, şarjda mı, pil sıcaklığı, konum za
 
 - `service/TrackerService`: ön plan servisi (location). `service/TrackerEngine`: tüm kurallar (şarj, hareket, termal, DURUM). Alarm (15 dk) ve `WatchdogWorker` servisi ayakta tutar, `BootReceiver` açılışta başlatır.
 - Araç durağanken GPS kapalı. Uyanma kaynakları: şarj bağlanması, significant-motion sensörü, 15 dk alarmı. Uyanınca 60 sn'lik kısa GPS penceresi açılır, hız 5 km/h üstü (art arda 2 örnek) görülürse HAREKET moduna geçilir.
+- Hareket sensörüne güvenilmez (pürüzsüz sürüşte tetiklenmeyebilir), bu yüzden yedekler var: şarj takılıyken (kontak açık, termal NORMAL) her 60 sn'de 20 sn'lik GPS yoklaması; her 15 dk'lık DURUM kaydından sonra 30 sn'lik yoklama; sensör hiç yoksa şarj yokken 3 dk'da bir 30 sn. Ana ekranda "Hareket sens" satırı sensörün var olup olmadığını ve kaç kez tetiklendiğini gösterir.
 - `data/`: Room kuyruğu (`logs` tablosu = kuyruk, sunucu 200 dönünce satır silinir, 422'de `quarantined`). `sync/SyncEngine`: partili gönderim, backoff, 401/413/422 davranışı.
 - `konumZamani` = kaydın oluştuğu andaki duvar saati. Konumun kendi yaşı `konumYasiMs` ile gider. Konum alınamayan kayıtta enlem/boylam/dogruluk/konumYasiMs null.
 - Her `DURUM` kaydı atılır. 15 dk'dan eski konumda yeni fix denenir; başarısızsa önce `KONUM_ALINAMADI` (tek sefer), sonra son bilinen konumla `DURUM`.
@@ -49,7 +50,9 @@ Enlem, boylam, doğruluk, pil yüzdesi, şarjda mı, pil sıcaklığı, konum za
 
 ## Kurallar ve Eşikler
 
-- **Hareket:** Hız 5 km/h üzerine çıkarsa `ARAC_HAREKET`. Hız 2 dk boyunca 5 km/h altında kalırsa `ARAC_DURUYOR`.
+- **Hareket (iki kural, hangisi önce):** (1) Hız art arda 2 örnek 5 km/h üstünde. (2) Yer değiştirme: referans noktadan **50 m ve üstü** uzaklaşma tek örnekte hemen `ARAC_HAREKET` yapar (hız ne olursa olsun, trafikte 4 km/h dahil). Korumalar: fix doğruluğu ≤ 50 m olmalı, eşik iki fix'in doğruluk toplamından küçük olamaz, ve GPS (Doppler) hızı ≥ 2 km/h olmalı (park halinde GPS zıplamasını hareket saymamak için). Referans nokta ilk fix ve her `ARAC_DURUYOR` anındaki konumdur; sürekli güncellenmez.
+- **Durma:** `ARAC_DURUYOR` için 2 dk boyunca hem 5 km/h üstü hız hem 50 m'lik ilerleme olmaması gerekir (yavaş ama ilerleyen trafik durmuş sayılmaz).
+- Yürürken de (telefon cepte) 50 m yer değiştirme hareket sayılır; bu bilinen bir sonuçtur, test için de kullanışlıdır.
 - **Şarj debounce:** Şarj durumu değişimi 15 sn sabit kalırsa kayıt atılır (gevşek kablo spam'ini önler).
 - **`DURUM` kaydında konum:** Önce son bilinen konum. 15 dk'dan eskiyse tek seferlik GPS fix denenir, başarısızsa `KONUM_ALINAMADI`. Konumun yaşı kayda yazılır.
 - **`KONUM_ALINAMADI`:** 60 sn fix gelmezse bir kez yazılır, konum geri gelene kadar tekrar yazılmaz.

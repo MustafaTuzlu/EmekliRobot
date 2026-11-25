@@ -107,6 +107,19 @@ class MainActivity : AppCompatActivity() {
         b.append("Araç        : ").append(if (rt.moving) "HAREKET" else "DURAĞAN").append('\n')
         b.append("GPS         : ").append(rt.gpsMode).append('\n')
 
+        val sensor = when (rt.motionSensor) {
+            null -> "?"
+            false -> "YOK (yedek yoklama devrede)"
+            true -> {
+                val last = rt.lastMotionElapsedMs?.let { TimeFmt.ago(now - it) } ?: "hiç"
+                "VAR · ${rt.motionTriggers} tetiklenme · son: $last"
+            }
+        }
+        b.append("Hareket sens: ").append(sensor).append('\n')
+        b.append("Yoklama     : ").append(
+            if (rt.plugged == true) "kontak açık: her 60 sn 20 sn GPS + sensör" else "kontak kapalı: sensör + 15 dk",
+        ).append('\n')
+
         val konum = if (rt.lat != null && rt.lon != null) {
             val age = rt.fixElapsedMs?.let { TimeFmt.ago(now - it) } ?: "?"
             String.format(Locale.US, "%.5f, %.5f ±%.0fm (%s)", rt.lat, rt.lon, rt.accuracyM ?: 0.0, age)

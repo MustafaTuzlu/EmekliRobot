@@ -18,6 +18,11 @@ data class RuntimeSnapshot(
     /** Son konumun alındığı an (SystemClock.elapsedRealtime, ms). */
     val fixElapsedMs: Long? = null,
     val noFix: Boolean = false,
+    /** Hareket sensörü (significant motion) cihazda var mı; null = henüz bilinmiyor. */
+    val motionSensor: Boolean? = null,
+    val motionTriggers: Int = 0,
+    /** Sensörün son tetiklenme anı (SystemClock.elapsedRealtime, ms). */
+    val lastMotionElapsedMs: Long? = null,
 )
 
 object RuntimeState {

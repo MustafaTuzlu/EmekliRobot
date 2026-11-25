@@ -5,6 +5,7 @@ import com.emekli.robot.core.Fix
 import com.emekli.robot.core.LogTypes
 import com.emekli.robot.core.MovementDetector
 import com.emekli.robot.core.MovementDetector.Change
+import com.emekli.robot.core.Pos
 import com.emekli.robot.core.Speed
 import com.emekli.robot.core.StableValue
 import com.emekli.robot.core.ThermalGovernor
@@ -105,6 +106,103 @@ class CoreLogicTest {
         assertTrue(m.moving)
     }
 
+    // ---- Yer değiştirme kuralı (50 m) ----
+
+    /** Enlem farkı: 0.00045° ≈ 50 m. */
+    private fun at(northM: Double, acc: Double = 10.0) = Pos(41.0 + northM / 111_195.0, 29.0, acc)
+
+    @Test fun displacement_50mIsMovementImmediately() {
+        val m = MovementDetector()
+        assertEquals(Change.NONE, m.onFix(0.0, at(0.0), 0))          // referans noktası
+        assertEquals(Change.NONE, m.onFix(3.0, at(40.0), 15_000))    // 40 m: henüz değil
+        assertEquals(Change.STARTED, m.onFix(3.0, at(55.0), 30_000)) // 55 m, tek örnek
+        assertTrue(m.moving)
+    }
+
+    @Test fun displacement_worksAtTrafficSpeedBelow5kmh() {
+        val m = MovementDetector()
+        m.onFix(0.0, at(0.0), 0)
+        // 4 km/h, 60 sn'de ~67 m: hız eşiğin altında ama yer değiştirme var
+        assertEquals(Change.STARTED, m.onFix(4.0, at(67.0), 60_000))
+    }
+
+    @Test fun displacement_gpsJumpAtZeroSpeedIsIgnored() {
+        val m = MovementDetector()
+        m.onFix(0.0, at(0.0), 0)
+        // Park halinde GPS 80 m zıpladı ama Doppler hızı ~0: hareket sayılmaz
+        assertEquals(Change.NONE, m.onFix(0.3, at(80.0), 5_000))
+        assertFalse(m.moving)
+    }
+
+    @Test fun displacement_poorAccuracyFixIsNotReliable() {
+        val m = MovementDetector()
+        m.onFix(0.0, at(0.0), 0)
+        assertEquals(Change.NONE, m.onFix(null, at(200.0, acc = 120.0), 5_000)) // doğruluk 120 m
+        assertFalse(m.moving)
+    }
+
+    @Test fun displacement_thresholdGrowsWithAccuracy() {
+        val m = MovementDetector()
+        m.onFix(0.0, at(0.0, acc = 40.0), 0)
+        // 60 m ama doğruluk toplamı 70 m: sapma olabilir
+        assertEquals(Change.NONE, m.onFix(null, at(60.0, acc = 30.0), 5_000))
+        assertEquals(Change.STARTED, m.onFix(null, at(75.0, acc = 30.0), 10_000))
+    }
+
+    @Test fun displacement_unknownSpeedStillCounts() {
+        val m = MovementDetector()
+        m.onFix(null, at(0.0), 0)
+        assertEquals(Change.STARTED, m.onFix(null, at(60.0), 10_000))
+    }
+
+    @Test fun displacement_anchorDoesNotFollowSlowDrift() {
+        val m = MovementDetector()
+        m.onFix(1.0, at(0.0), 0)
+        // 3 km/h ile ilerliyor: her fix önceki fix'e yakın (12 m) ama referans sabit
+        var startedAtStep = -1
+        for (i in 1..6) {
+            if (m.onFix(3.0, at(i * 12.0), i * 15_000L) == Change.STARTED) startedAtStep = i
+        }
+        assertEquals(5, startedAtStep) // 5. adımda referanstan 60 m uzaklaşıldı
+        assertTrue(m.moving)
+    }
+
+    @Test fun displacement_slowTrafficDoesNotStopWhileProgressing() {
+        val m = MovementDetector()
+        m.onFix(0.0, at(0.0), 0)
+        m.onFix(4.0, at(60.0), 15_000)            // STARTED
+        // 4 km/h ile 5 dk daha ilerliyor: hız hep < 5 ama her ~45 sn'de 50 m ilerleme var
+        var stopped = false
+        var north = 60.0
+        for (i in 1..20) {
+            north += 17.0
+            if (m.onFix(4.0, at(north), 15_000L + i * 15_000L) == Change.STOPPED) stopped = true
+        }
+        assertFalse(stopped)
+        assertTrue(m.moving)
+    }
+
+    @Test fun displacement_stopsWhenNeitherFastNorProgressing() {
+        val m = MovementDetector()
+        m.onFix(0.0, at(0.0), 0)
+        m.onFix(40.0, at(100.0), 5_000); m.onFix(40.0, at(200.0), 10_000)   // hızlı, STARTED
+        assertTrue(m.moving)
+        assertEquals(Change.NONE, m.onFix(0.0, at(200.0), 100_000))
+        assertEquals(Change.STOPPED, m.onFix(0.0, at(201.0), 135_000))      // 2 dk dolmuş, ilerleme yok
+        assertFalse(m.moving)
+    }
+
+    @Test fun displacement_newAnchorIsWhereItStopped() {
+        val m = MovementDetector()
+        m.onFix(0.0, at(0.0), 0)
+        m.onFix(40.0, at(100.0), 5_000); m.onFix(40.0, at(200.0), 10_000)
+        m.onFix(0.0, at(200.0), 20_000)
+        m.onFix(0.0, at(200.0), 140_000)                                    // STOPPED, referans = 200 m
+        assertFalse(m.moving)
+        assertEquals(Change.NONE, m.onFix(0.2, at(230.0), 150_000))         // 30 m: hareket değil
+        assertEquals(Change.STARTED, m.onFix(3.0, at(260.0), 160_000))      // 60 m
+    }
+
     // ---- Hız hesabı ----
 
     @Test fun speed_prefersGpsSpeed() {
@@ -185,6 +283,15 @@ class CoreLogicTest {
         )
         assertEquals(server, LogTypes.ALL.toSet())
         assertTrue(LogTypes.ALL.all { t -> t.all { it in 'A'..'Z' || it == '_' } })
+    }
+
+    @Test fun config_probeWindowsFitTheirPeriods() {
+        // Şarjlı yoklama penceresi, iki yoklama arasına sığmalı; GPS sürekli açık kalmasın
+        assertTrue(Config.PLUGGED_PROBE_WINDOW_MS < Config.PLUGGED_PROBE_PERIOD_MS)
+        assertTrue(Config.FALLBACK_PROBE_WINDOW_MS < Config.FALLBACK_PROBE_MS)
+        // Hız için en az 2 örnek gerekir (PROBE_INTERVAL_MS aralıkla)
+        assertTrue(Config.PLUGGED_PROBE_WINDOW_MS >= Config.PROBE_INTERVAL_MS * (Config.START_CONFIRM_SAMPLES + 1))
+        assertTrue(Config.HEARTBEAT_PROBE_WINDOW_MS >= Config.PROBE_INTERVAL_MS * (Config.START_CONFIRM_SAMPLES + 1))
     }
 
     @Test fun config_thresholdsAreConsistent() {
