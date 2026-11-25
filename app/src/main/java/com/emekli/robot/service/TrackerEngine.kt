@@ -34,6 +34,7 @@ import com.emekli.robot.core.ThermalState
 import com.emekli.robot.core.TimeFmt
 import com.emekli.robot.data.AppDatabase
 import com.emekli.robot.data.LogEntity
+import com.emekli.robot.sync.SyncPolicy
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -56,7 +57,7 @@ import java.util.UUID
 class TrackerEngine(
     private val ctx: Context,
     private val scope: CoroutineScope,
-    private val requestSync: () -> Unit,
+    private val requestSync: (urgent: Boolean) -> Unit,
     private val onModeChanged: () -> Unit,
 ) {
     private enum class GpsMode { OFF, MOVING, PROBE }
@@ -204,7 +205,7 @@ class TrackerEngine(
     private fun onThermalChanged(from: ThermalState, to: ThermalState) {
         ThermalGovernor.logTypeFor(from, to)?.let { record(it) }
         applyMode()
-        if (to == ThermalState.NORMAL) requestSync()
+        if (to == ThermalState.NORMAL) requestSync(false)
     }
 
     private fun gpsAllowed(): Boolean =
@@ -450,7 +451,9 @@ class TrackerEngine(
         scope.launch {
             try {
                 dao.insert(entity)
-                main.post { requestSync() }
+                // Sıcaklık uyarıları gönderim durmuş olsa da hemen gönderilir (SyncPolicy).
+                val urgent = SyncPolicy.isUrgentType(type)
+                main.post { requestSync(urgent) }
             } catch (t: Throwable) {
                 Log.e(TAG, "Kayıt yazılamadı: $type", t)
             }

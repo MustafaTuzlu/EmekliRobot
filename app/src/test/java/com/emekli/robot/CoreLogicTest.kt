@@ -13,6 +13,7 @@ import com.emekli.robot.core.ThermalState
 import com.emekli.robot.core.TimeFmt
 import com.emekli.robot.data.LogEntity
 import com.emekli.robot.sync.PayloadBuilder
+import com.emekli.robot.sync.SyncPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -283,6 +284,40 @@ class CoreLogicTest {
         )
         assertEquals(server, LogTypes.ALL.toSet())
         assertTrue(LogTypes.ALL.all { t -> t.all { it in 'A'..'Z' || it == '_' } })
+    }
+
+    // ---- Gönderim kararı ----
+
+    private fun decide(t: ThermalState, online: Boolean, urgent: Boolean, since: Long) =
+        SyncPolicy.decide(t, online, urgent, since)
+
+    @Test fun syncPolicy_normalSendsImmediatelyWhenGapPassed() {
+        assertEquals(SyncPolicy.Decision.NOW, decide(ThermalState.NORMAL, true, false, 61_000))
+        assertEquals(SyncPolicy.Decision.LATER, decide(ThermalState.NORMAL, true, false, 20_000))
+        assertEquals(40_000L, SyncPolicy.delayMs(20_000))
+    }
+
+    @Test fun syncPolicy_offlineNeverSends() {
+        assertEquals(SyncPolicy.Decision.SKIP, decide(ThermalState.NORMAL, false, false, 999_000))
+        assertEquals(SyncPolicy.Decision.SKIP, decide(ThermalState.NORMAL, false, true, 999_000))
+    }
+
+    @Test fun syncPolicy_hotDeviceHoldsNormalRecords() {
+        assertEquals(SyncPolicy.Decision.SKIP, decide(ThermalState.ISINMIS, true, false, 999_000))
+        assertEquals(SyncPolicy.Decision.SKIP, decide(ThermalState.KRITIK, true, false, 999_000))
+    }
+
+    @Test fun syncPolicy_heatAlertGoesOutEvenWhenHotAndWithinGap() {
+        assertEquals(SyncPolicy.Decision.NOW, decide(ThermalState.ISINMIS, true, true, 1_000))
+        assertEquals(SyncPolicy.Decision.NOW, decide(ThermalState.KRITIK, true, true, 0))
+    }
+
+    @Test fun syncPolicy_onlyHeatAlertTypesAreUrgent() {
+        assertTrue(SyncPolicy.isUrgentType(LogTypes.CIHAZ_ISINDI))
+        assertTrue(SyncPolicy.isUrgentType(LogTypes.CIHAZ_KRITIK_ISINDI))
+        assertFalse(SyncPolicy.isUrgentType(LogTypes.CIHAZ_SOGUDU))   // NORMAL'e dönünce zaten gönderilir
+        assertFalse(SyncPolicy.isUrgentType(LogTypes.KONUM))
+        assertFalse(SyncPolicy.isUrgentType(LogTypes.DURUM))
     }
 
     @Test fun config_probeWindowsFitTheirPeriods() {

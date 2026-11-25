@@ -21,8 +21,8 @@ import androidx.core.content.ContextCompat
 import com.emekli.robot.MainActivity
 import com.emekli.robot.core.RuntimeState
 import com.emekli.robot.core.ThermalState
-import com.emekli.robot.core.Config
 import com.emekli.robot.sync.SyncEngine
+import com.emekli.robot.sync.SyncPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,7 +53,7 @@ class TrackerService : Service() {
         engine = TrackerEngine(
             ctx = this,
             scope = s,
-            requestSync = { requestSync() },
+            requestSync = { urgent -> requestSync(urgent = urgent) },
             onModeChanged = { updateNotification() },
         )
         freshStart = true
@@ -90,21 +90,31 @@ class TrackerService : Service() {
 
     // ---- gönderim tetikleme -------------------------------------------------------------------
 
-    /** Kayıt eklenince / ağ gelince çağrılır. Isınmışken gönderim durur; en az 60 sn arayla denenir. */
-    private fun requestSync(force: Boolean = false) {
-        if (RuntimeState.flow.value.thermal != ThermalState.NORMAL) return
-        if (!isOnline()) return
+    /**
+     * Kayıt eklenince / ağ gelince çağrılır. Isınmışken gönderim durur; en az 60 sn arayla denenir.
+     * `urgent` (sıcaklık uyarısı) bu iki kuralı da aşar ve bekleme süresini beklemeden bir kez dener.
+     */
+    private fun requestSync(force: Boolean = false, urgent: Boolean = false) {
         val now = SystemClock.elapsedRealtime()
         val gap = now - lastSyncAt
-        if (!force && gap < Config.SYNC_MIN_GAP_MS) {
-            if (!syncScheduled) {
-                syncScheduled = true
-                main.postDelayed({ syncScheduled = false; requestSync() }, Config.SYNC_MIN_GAP_MS - gap)
+        // force: 60 sn bekleme süresini atlar ama ısınma kuralını atlamaz (yalnızca urgent atlar)
+        val decision = SyncPolicy.decide(
+            RuntimeState.flow.value.thermal, isOnline(), urgent, if (force) Long.MAX_VALUE else gap,
+        )
+        when (decision) {
+            SyncPolicy.Decision.SKIP -> return
+            SyncPolicy.Decision.LATER -> {
+                if (!syncScheduled) {
+                    syncScheduled = true
+                    main.postDelayed({ syncScheduled = false; requestSync() }, SyncPolicy.delayMs(gap))
+                }
             }
-            return
+            SyncPolicy.Decision.NOW -> {
+                lastSyncAt = now
+                // Acil gönderim önceki hata bekleme süresini de atlar.
+                SyncEngine.launch(this, force = urgent)
+            }
         }
-        lastSyncAt = now
-        SyncEngine.launch(this, force = false)
     }
 
     private fun isOnline(): Boolean {

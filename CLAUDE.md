@@ -66,7 +66,7 @@ Karar kaynağı pil sıcaklığıdır (`ACTION_BATTERY_CHANGED`). `PowerManager`
 | Durum | Giriş | Davranış |
 |---|---|---|
 | NORMAL | başlangıç, ≤ 41 °C'ye inince | Tam çalışma (15 sn konum, normal gönderim) |
-| ISINMIS | ≥ 45 °C | Konum 60 sn'de bir, sunucuya gönderim durur (kuyrukta bekler), arayüz ve gereksiz işler durur |
+| ISINMIS | ≥ 45 °C | Konum 60 sn'de bir, sunucuya gönderim durur (kuyrukta bekler), arayüz ve gereksiz işler durur. İstisna: `CIHAZ_ISINDI` ve `CIHAZ_KRITIK_ISINDI` uyarıları oluşur oluşmaz bir kez gönderilir (`SyncPolicy`), o sırada kuyruktaki diğer kayıtlar da gider |
 | KRITIK | ≥ 48 °C | GPS ve gönderim durur, yalnızca 15 dk'lık `DURUM` kaydı. Soğumayı bekler |
 
 - Geri dönüş: KRITIK, 46 °C'nin altına inince ISINMIS'a; ISINMIS, 41 °C ve altına inince NORMAL'e döner (histerezis).
