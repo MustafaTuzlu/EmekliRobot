@@ -28,6 +28,11 @@ Eski bir telefonu **araç takip cihazı** olarak kullanan Android uygulaması. C
 | `KONUM` | Hareket halindeyken her **15 sn** |
 | `DURUM` | Durağanken her **15 dk** |
 | `KONUM_ALINAMADI` | Konum alınamadığında |
+| `CIHAZ_ISINDI` | Pil sıcaklığı 45 °C ve üstüne çıktı, kısıtlı moda geçildi |
+| `CIHAZ_KRITIK_ISINDI` | Pil sıcaklığı 48 °C ve üstüne çıktı, her şey durduruldu |
+| `CIHAZ_SOGUDU` | Pil sıcaklığı normale döndü, tam çalışmaya dönüldü |
+
+Log tiplerinde Türkçe karakter kullanılmaz (yalnızca ASCII, büyük harf, alt çizgi).
 
 ## Kayıt Alanları
 
@@ -41,6 +46,20 @@ Enlem, boylam, doğruluk, pil yüzdesi, şarjda mı, pil sıcaklığı, konum za
 - **`KONUM_ALINAMADI`:** 60 sn fix gelmezse bir kez yazılır, konum geri gelene kadar tekrar yazılmaz.
 - **Düşük pil:** Pil %5 altında yalnızca 15 dk'lık `DURUM` kaydı devam eder, GPS fix denenmez.
 - **Güç/disk:** Durağanken GPS kapalı, hareket sensörü/Activity Recognition ile beklenir. Yazmalar toplu (batch). Konum eşiğin altında değiştiyse diske yazılmaz.
+
+## Termal Koruma (yaz sıcağı)
+
+Karar kaynağı pil sıcaklığıdır (`ACTION_BATTERY_CHANGED`). `PowerManager` termal durumu yalnızca ek bilgi olarak kullanılır (Samsung güvenilir raporlamayabilir). Eşikler ayar olarak tutulur, sahada değiştirilebilir. Durum geçişleri 30 sn sabit kalırsa kayıt atılır.
+
+| Durum | Giriş | Davranış |
+|---|---|---|
+| NORMAL | başlangıç, ≤ 41 °C'ye inince | Tam çalışma (15 sn konum, normal gönderim) |
+| ISINMIS | ≥ 45 °C | Konum 60 sn'de bir, sunucuya gönderim durur (kuyrukta bekler), arayüz ve gereksiz işler durur |
+| KRITIK | ≥ 48 °C | GPS ve gönderim durur, yalnızca 15 dk'lık `DURUM` kaydı. Soğumayı bekler |
+
+- Geri dönüş: KRITIK, 46 °C'nin altına inince ISINMIS'a; ISINMIS, 41 °C ve altına inince NORMAL'e döner (histerezis).
+- Kayıtlar: NORMAL→ISINMIS `CIHAZ_ISINDI`, →KRITIK `CIHAZ_KRITIK_ISINDI`, →NORMAL `CIHAZ_SOGUDU`.
+- Uygulama şarjı kesemez. Aşırı ısınmada Samsung kendi korumasıyla şarjı keserse `SARJ_KESILDI` oluşabilir. Pil sıcaklığı her kayıtta olduğundan sunucu tarafı nedenini ayırt edebilir.
 
 ## Kararlılık Gereksinimleri (7/24)
 
@@ -70,6 +89,16 @@ export PATH=$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH
 ```
 
 Telefonda Geliştirici seçenekleri > USB hata ayıklama açık olmalı. Diğer geliştirici seçenekleri (kayıt çıkış düzeyi, TTS, düğüm ağacı) varsayılan kalabilir.
+
+## Arayüz (basit, 3 ekran)
+
+Servis arka planda ayrı çalışır; ekranı açmak/kapatmak veri toplamayı etkilemez. Ekran sürekli açık tutulmaz (`KEEP_SCREEN_ON` yok). Canlı liste (Room `Flow`) yalnızca ekran açıkken dinlenir. Isınmış/kritik modda arayüz işleri durur. Çekirdek (konum, kuyruk, gönderim) önce yapılır, ekranlar sonra eklenir.
+
+1. **Durum:** Servis çalışıyor mu, son konum, pil, sıcaklık ve termal durum, şarj durumu, araç hareket/durağan, kuyruktaki kayıt sayısı, son başarılı gönderim zamanı, "Şimdi gönder" butonu.
+2. **Bekleyen loglar:** Henüz sunucuya gönderilmemiş kayıtlar, yeniden eskiye sıralı. Sayfalı yükleme (Paging 3), log tipine göre filtre. Alanlar: log tipi, zaman, koordinat, pil.
+3. **Sunucu ayarları:** Servis URL'si (düzenlenebilir), gerekirse API anahtarı (EncryptedSharedPreferences), "Bağlantıyı test et" butonu (HTTP kodu, süre, hata mesajı gösterir). Test isteğinin içeriği API detaylarına göre belirlenecek.
+
+Açık konular: Ayar ekranına PIN konulsun mu (karar bekliyor). URL HTTPS olmalı; HTTP ise özel izin tanımlanması gerekir.
 
 ## Sunucu API'si
 
