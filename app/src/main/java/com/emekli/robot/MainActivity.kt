@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             hint = "Şifre"
         }
         pinDialog = AlertDialog.Builder(this)
