@@ -75,6 +75,9 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, PendingLogsActivity::class.java))
         }
         findViewById<Button>(R.id.btnSettings).setOnClickListener { askPin() }
+        findViewById<Button>(R.id.btnAbout).setOnClickListener {
+            startActivity(Intent(this, AboutActivity::class.java))
+        }
 
         val dao = AppDatabase.get(this).logDao()
         val ticker = flow { while (true) { emit(SystemClock.elapsedRealtime()); delay(1000) } }

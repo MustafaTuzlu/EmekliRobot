@@ -118,6 +118,10 @@ Servis arka planda ayrı çalışır; ekranı açmak/kapatmak veri toplamayı et
 
 Açık konular: URL HTTPS olmalı; HTTP ise özel izin tanımlanması gerekir (karar bekliyor).
 
+## Sürüm numarası
+
+`app/build.gradle.kts` içinde `versionName` (şu an 1.0.0) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
+
 ## Sunucu API'si
 
 Sunucu ayrı repoda: `/Users/mustafa.tuzlu/Repo/MarmaraOfisEtiket`. **Tek doğru kaynak (sözleşme):** `/Users/mustafa.tuzlu/Repo/MarmaraOfisEtiket/docs/emekli-robot-api.md` (v1). Aşağıdaki özet ile çelişirse sözleşme geçerlidir.

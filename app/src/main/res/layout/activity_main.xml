@@ -81,5 +81,11 @@
             android:layout_height="wrap_content"
             android:text="Sunucu ayarları" />
 
+        <Button
+            android:id="@+id/btnAbout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PROGRAM HAKKINDA" />
+
     </LinearLayout>
 </ScrollView>
