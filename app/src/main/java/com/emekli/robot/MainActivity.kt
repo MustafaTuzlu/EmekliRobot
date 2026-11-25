@@ -60,6 +60,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         txtStatus = findViewById(R.id.txtStatus)
+        findViewById<TextView>(R.id.txtVersion).text = "Sürüm ${BuildConfig.VERSION_NAME}"
         txtPerm = findViewById(R.id.txtPerm)
         btnPerm = findViewById(R.id.btnPerm)
         btnBattery = findViewById(R.id.btnBattery)

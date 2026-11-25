@@ -45,6 +45,26 @@
             android:importantForAutofill="no"
             android:inputType="textPassword" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Cihaz adı (sunucuda bu isimle görünür)" />
+
+        <EditText
+            android:id="@+id/editDevice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:importantForAutofill="no"
+            android:inputType="textNoSuggestions"
+            android:maxLength="50" />
+
+        <TextView
+            android:id="@+id/txtDeviceHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp" />
+
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"

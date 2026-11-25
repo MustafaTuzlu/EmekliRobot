@@ -20,6 +20,7 @@ class AboutActivity : AppCompatActivity() {
                 text = title
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(getColor(R.color.brand_green))
                 setPadding(0, dp(18), 0, dp(4))
             })
             box.addView(TextView(this).apply {

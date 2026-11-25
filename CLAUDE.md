@@ -6,7 +6,7 @@ Eski bir telefonu **araç takip cihazı** olarak kullanan Android uygulaması. C
 
 - Samsung Galaxy Note9, model SM-N960F, Android 10 (API 29)
 - Ekran: 1440x2960, yaklaşık 6.4", 18.5:9
-- Cihaz adı (sunucuya gönderilen): `EmektarNote9` (tek cihaz)
+- Cihaz adı (sunucuya gönderilen `cihazAdi`): Sunucu ayarları ekranında düzenlenir; boşsa otomatik `marka-model-kimliğinSon4Hanesi` (örn. `samsung-SM-N960F-5a61`), böylece birden çok telefon ayrılır. Kural: 1-50 karakter, yalnızca `A-Z a-z 0-9 _ -`. Bu telefonun eski adı `EmektarNote9`.
 - SIM yok: internet yalnızca Wi-Fi/hotspot ile, zamanı belirsiz. GPS soğuk başlangıcı yavaş olabilir, cihaz saati ağdan düzelmez.
 - Dağıtım: APK ile doğrudan kurulum (Play Store yok).
 
@@ -79,14 +79,14 @@ Karar kaynağı pil sıcaklığıdır (`ACTION_BATTERY_CHANGED`). `PowerManager`
 
 ## Kararlılık Gereksinimleri (7/24)
 
-- Bellek sızıntısı olmamalı: bellekte büyüyen liste/cache yok, her şey Room'da. Debug'da LeakCanary, 24-72 saat soak testi.
+- Bellek sızıntısı olmamalı: bellekte büyüyen liste/cache yok, her şey Room'da. 24-72 saat soak testi.
 - Crash olmamalı: global `UncaughtExceptionHandler` hatayı loglar ve servisi yeniden başlatır.
 - Boot receiver, şarj bağlandı tetikleyicisi ve WorkManager periyodik watchdog ile servis her zaman ayakta tutulur.
 - Samsung pil optimizasyonu / "uyuyan uygulamalar" muafiyeti gerekir (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`).
 
 ## Teknoloji
 
-Kotlin, minSdk 29, compileSdk/targetSdk 34, Foreground Service (`foregroundServiceType="location"`), GPS (LocationManager), Room, WorkManager, OkHttp/Retrofit. Arayüz minimum (durum ekranı). Paket adı: `com.emekli.robot`, uygulama adı: EmekliRobot.
+Kotlin, minSdk 29, compileSdk/targetSdk 34, Foreground Service (`foregroundServiceType="location"`), GPS (LocationManager), Room, WorkManager, OkHttp/Retrofit. Arayüz minimum (durum ekranı). Paket adı: `com.emekli.robot`, uygulama adı (ekranda): Emekli Robot (paket/repo adı EmekliRobot kalır). Simge: sakallı Android robotu (`ic_launcher_foreground.xml`, uyarlanabilir). LeakCanary kaldırıldı (telefonda ayrıca "Leaks" simgesi çıkarıyordu).
 
 ## Geliştirme Ortamı (Mac, Apple Silicon)
 
@@ -120,7 +120,7 @@ Açık konular: URL HTTPS olmalı; HTTP ise özel izin tanımlanması gerekir (k
 
 ## Sürüm numarası
 
-`app/build.gradle.kts` içinde `versionName` (şu an 1.0.0) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
+`app/build.gradle.kts` içinde `versionName` (şu an 1.0.2) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
 
 ## Sunucu API'si
 

@@ -19,6 +19,7 @@ import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.emekli.robot.MainActivity
+import com.emekli.robot.R
 import com.emekli.robot.core.RuntimeState
 import com.emekli.robot.core.ThermalState
 import com.emekli.robot.sync.SyncEngine
@@ -146,7 +147,7 @@ class TrackerService : Service() {
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "Takip", NotificationManager.IMPORTANCE_LOW).apply {
-                    description = "EmekliRobot arka plan takip servisi"
+                    description = "Emekli Robot arka plan takip servisi"
                     setShowBadge(false)
                 },
             )
@@ -170,8 +171,8 @@ class TrackerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("EmekliRobot takip çalışıyor")
+            .setSmallIcon(R.drawable.ic_stat_robot)
+            .setContentTitle("Emekli Robot takip çalışıyor")
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

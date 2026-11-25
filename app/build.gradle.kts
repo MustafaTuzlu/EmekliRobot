@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import java.security.MessageDigest
 import java.util.Properties
 
@@ -21,6 +22,10 @@ val pinHash: String = MessageDigest.getInstance("SHA-256")
     .joinToString("") { "%02x".format(it) }
 
 android {
+    // APK dosya adı: emekli.apk (app/build/outputs/apk/debug/emekli.apk)
+    applicationVariants.all {
+        outputs.all { (this as BaseVariantOutputImpl).outputFileName = "emekli.apk" }
+    }
     namespace = "com.emekli.robot"
     compileSdk = 34
 
@@ -28,8 +33,8 @@ android {
         applicationId = "com.emekli.robot"
         minSdk = 29
         targetSdk = 34
-        versionCode = 100 // major*100 + minor*10 + patch (1.0.0 = 100)
-        versionName = "1.0.0"
+        versionCode = 102 // major*100 + minor*10 + patch (1.0.0 = 100)
+        versionName = "1.0.2"
 
         buildConfigField("String", "SETTINGS_PIN_SALT", "\"$pinSalt\"")
         buildConfigField("String", "SETTINGS_PIN_HASH", "\"$pinHash\"")
@@ -58,6 +63,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
 
     // Kuyruk (kalıcı, SQLite/WAL)
     implementation("androidx.room:room-runtime:2.6.1")
@@ -81,7 +87,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     // Debug: bellek sızıntısı tespiti (7/24 çalışma için)
-    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 
     // Birim testleri (saf mantık: hareket, termal, zaman, gönderim gövdesi)
     testImplementation("junit:junit:4.13.2")

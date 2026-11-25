@@ -61,6 +61,7 @@ object SyncEngine {
         val settings = SettingsStore.get(ctx)
         val baseUrl = settings.baseUrl
         val apiKey = settings.apiKey
+        val deviceName = settings.deviceName
         if (apiKey.isBlank()) return fail("API anahtarı girilmemiş (Sunucu ayarları)", backoff = false)
         if (!baseUrl.startsWith("https://")) return fail("Sunucu adresi https:// ile başlamalı", backoff = false)
         if (!force) {
@@ -82,7 +83,7 @@ object SyncEngine {
                     return
                 }
                 val resp = try {
-                    post(baseUrl, apiKey, batch)
+                    post(baseUrl, apiKey, deviceName, batch)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: IOException) {
@@ -125,12 +126,13 @@ object SyncEngine {
 
     private class Resp(val code: Int, val body: String)
 
-    private fun post(baseUrl: String, apiKey: String, batch: List<LogEntity>): Resp {
+    private fun post(baseUrl: String, apiKey: String, deviceName: String, batch: List<LogEntity>): Resp {
         // gonderimElapsedRealtime her denemede o an okunur (sunucu saat sapmasını bununla düzeltir)
         val payload = PayloadBuilder.build(
             batch,
             gonderimElapsedRealtime = SystemClock.elapsedRealtime(),
             gonderimZamani = TimeFmt.iso(System.currentTimeMillis()),
+            deviceName = deviceName,
         )
         val request = Request.Builder()
             .url(baseUrl.trimEnd('/') + "/kayitlar.php")

@@ -8,9 +8,14 @@ import org.json.JSONObject
 /** POST kayitlar.php gövdesi. Alan adları docs/emekli-robot-api.md §4 ile birebir. */
 object PayloadBuilder {
 
-    fun build(batch: List<LogEntity>, gonderimElapsedRealtime: Long, gonderimZamani: String?): JSONObject {
+    fun build(
+        batch: List<LogEntity>,
+        gonderimElapsedRealtime: Long,
+        gonderimZamani: String?,
+        deviceName: String = Config.DEVICE_NAME,
+    ): JSONObject {
         val arr = JSONArray()
-        batch.forEach { arr.put(record(it)) }
+        batch.forEach { arr.put(record(it, deviceName)) }
         return JSONObject().apply {
             put("gonderimElapsedRealtime", gonderimElapsedRealtime)
             if (gonderimZamani != null) put("gonderimZamani", gonderimZamani)
@@ -18,9 +23,9 @@ object PayloadBuilder {
         }
     }
 
-    fun record(e: LogEntity): JSONObject = JSONObject().apply {
+    fun record(e: LogEntity, deviceName: String = Config.DEVICE_NAME): JSONObject = JSONObject().apply {
         put("kayit", e.uuid)
-        put("cihazAdi", Config.DEVICE_NAME)
+        put("cihazAdi", deviceName)
         put("logTipi", e.logType)
         // enlem/boylam birlikte dolu ya da birlikte null olmalı
         val hasCoords = e.lat != null && e.lon != null && e.lat.isFinite() && e.lon.isFinite()

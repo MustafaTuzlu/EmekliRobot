@@ -15,6 +15,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var store: SettingsStore
     private lateinit var editUrl: EditText
     private lateinit var editKey: EditText
+    private lateinit var editDevice: EditText
     private lateinit var txtResult: TextView
     private lateinit var btnTest: Button
     private var pending: Call? = null
@@ -26,11 +27,15 @@ class SettingsActivity : AppCompatActivity() {
         store = SettingsStore(this)
         editUrl = findViewById(R.id.editUrl)
         editKey = findViewById(R.id.editKey)
+        editDevice = findViewById(R.id.editDevice)
         txtResult = findViewById(R.id.txtResult)
         btnTest = findViewById(R.id.btnTest)
 
         editUrl.setText(store.baseUrl)
         editKey.setText(store.apiKey)
+        editDevice.setText(store.deviceName)
+        findViewById<TextView>(R.id.txtDeviceHint).text =
+            "Yalnızca harf, rakam, _ ve -. Boş bırakırsanız otomatik ad kullanılır: ${store.autoName}"
 
         findViewById<Button>(R.id.btnSave).setOnClickListener {
             save()
@@ -42,6 +47,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun save() {
         store.baseUrl = editUrl.text.toString()
         store.apiKey = editKey.text.toString()
+        store.deviceName = editDevice.text.toString()
+        editDevice.setText(store.deviceName) // temizlenmiş hali göster
     }
 
     private fun test() {

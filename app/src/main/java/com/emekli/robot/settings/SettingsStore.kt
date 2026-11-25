@@ -2,6 +2,9 @@ package com.emekli.robot.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
+import android.provider.Settings
+import com.emekli.robot.core.DeviceName
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
@@ -30,6 +33,17 @@ class SettingsStore(context: Context) {
         get() = prefs.getString(KEY_API_KEY, "") ?: ""
         set(value) = prefs.edit().putString(KEY_API_KEY, value.trim()).apply()
 
+    /** Ayar ekranından girilen cihaz adı; boşsa marka-model-kimlik'ten otomatik üretilen ad. */
+    var deviceName: String
+        get() = DeviceName.sanitize(prefs.getString(KEY_DEVICE, "") ?: "") ?: autoName
+        set(value) = prefs.edit().putString(KEY_DEVICE, DeviceName.sanitize(value) ?: "").apply()
+
+    /** Ad girilmediyse kullanılacak otomatik ad (düzenleme kutusunda ipucu olarak gösterilir). */
+    val autoName: String = DeviceName.auto(
+        Build.MANUFACTURER, Build.MODEL,
+        Settings.Secure.getString(context.applicationContext.contentResolver, Settings.Secure.ANDROID_ID),
+    )
+
     companion object {
         @Volatile
         private var shared: SettingsStore? = null
@@ -44,5 +58,6 @@ class SettingsStore(context: Context) {
         private const val FILE_NAME = "emekli_settings"
         private const val KEY_URL = "base_url"
         private const val KEY_API_KEY = "api_key"
+        private const val KEY_DEVICE = "device_name"
     }
 }

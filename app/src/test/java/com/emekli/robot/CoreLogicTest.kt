@@ -15,6 +15,7 @@ import com.emekli.robot.core.TimeFmt
 import com.emekli.robot.data.LogEntity
 import com.emekli.robot.core.BestFixWindow
 import com.emekli.robot.core.CornerDetector
+import com.emekli.robot.core.DeviceName
 import com.emekli.robot.core.ParkedPosition
 import com.emekli.robot.sync.PayloadBuilder
 import com.emekli.robot.sync.SyncPolicy
@@ -501,5 +502,32 @@ class CoreLogicTest {
         assertTrue(Config.HOT_SAMPLE_INTERVAL_MS < Config.HOT_INTERVAL_MS)
         assertTrue(Config.CORNER_MIN_GAP_MS < Config.MOVING_INTERVAL_MS)
         assertTrue(Config.GOOD_FIX_WAIT_MS < Config.FIX_TIMEOUT_MS)
+    }
+
+    // ---- cihaz adı ----
+
+    @Test fun deviceName_autoIsUniquePerDeviceAndValid() {
+        val a = DeviceName.auto("samsung", "SM-N960F", "9f3a1c2b7d4e5a61")
+        val b = DeviceName.auto("samsung", "SM-N960F", "11112222333344ff")
+        assertEquals("samsung-SM-N960F-5a61", a)
+        assertTrue(a != b)
+        assertTrue(Regex("[A-Za-z0-9_-]{1,50}").matches(a))
+    }
+
+    @Test fun deviceName_sanitizeFixesInvalidCharacters() {
+        assertEquals("Emektar-Note-9", DeviceName.sanitize("  Emektar Note 9 "))
+        assertEquals("Arac-1", DeviceName.sanitize("Araç 1"))
+        assertNull(DeviceName.sanitize("  ***  "))
+        assertEquals(50, DeviceName.sanitize("a".repeat(80))!!.length)
+    }
+
+    @Test fun deviceName_autoHandlesMissingInfo() {
+        assertEquals("android-0000", DeviceName.auto(null, null, null))
+        assertTrue(DeviceName.auto("x".repeat(60), "y".repeat(60), "abcd").length <= 50)
+    }
+
+    @Test fun payload_usesGivenDeviceName() {
+        val r = PayloadBuilder.record(entity(LogTypes.DURUM, 41.0, 29.0), "samsung-SM-N960F-5a61")
+        assertEquals("samsung-SM-N960F-5a61", r.getString("cihazAdi"))
     }
 }
