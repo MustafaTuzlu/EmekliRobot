@@ -98,7 +98,9 @@ Servis arka planda ayrı çalışır; ekranı açmak/kapatmak veri toplamayı et
 2. **Bekleyen loglar:** Henüz sunucuya gönderilmemiş kayıtlar, yeniden eskiye sıralı. Sayfalı yükleme (Paging 3), log tipine göre filtre. Alanlar: log tipi, zaman, koordinat, pil.
 3. **Sunucu ayarları:** Servis URL'si (düzenlenebilir), gerekirse API anahtarı (EncryptedSharedPreferences), "Bağlantıyı test et" butonu (HTTP kodu, süre, hata mesajı gösterir). Test isteğinin içeriği API detaylarına göre belirlenecek.
 
-Açık konular: Ayar ekranına PIN konulsun mu (karar bekliyor). URL HTTPS olmalı; HTTP ise özel izin tanımlanması gerekir.
+**Sunucu ayarları ekranı şifre ile korunur** (6 haneli sabit şifre). Şifre repoya yazılmaz: derleme sırasında gitignore'lu `local.properties` içindeki `SETTINGS_PIN` değerinden okunur ve uygulamada yalnızca tuzlu hash olarak tutulur. Bu bir kolaylık kilididir, APK'yı söken biri aşabilir.
+
+Açık konular: URL HTTPS olmalı; HTTP ise özel izin tanımlanması gerekir (karar bekliyor).
 
 ## Sunucu API'si
 
