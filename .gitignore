@@ -1,0 +1,13 @@
+# Gizli ve makineye özel dosyalar (SETTINGS_PIN, sdk.dir burada)
+local.properties
+*.jks
+*.keystore
+
+# Gradle / Android
+.gradle/
+build/
+.idea/
+*.iml
+captures/
+.cxx/
+.DS_Store

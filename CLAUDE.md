@@ -104,4 +104,17 @@ Açık konular: URL HTTPS olmalı; HTTP ise özel izin tanımlanması gerekir (k
 
 ## Sunucu API'si
 
-Henüz verilmedi. Kullanıcı detaylı olarak sağlayacak (endpoint, istek formatı, kimlik doğrulama).
+Sunucu ayrı repoda: `/Users/mustafa.tuzlu/Repo/MarmaraOfisEtiket`. **Tek doğru kaynak (sözleşme):** `/Users/mustafa.tuzlu/Repo/MarmaraOfisEtiket/docs/emekli-robot-api.md` (v1). Aşağıdaki özet ile çelişirse sözleşme geçerlidir.
+
+- Taban adres: `https://marmaraofisetiket.net/api/emekli/` (yalnızca HTTPS, `www` yok). `http` 301 verir ve POST gövdesi kaybolur, 3xx başarı sayılmaz.
+- Uç noktalar: `GET ping.php` ("Bağlantıyı test et"), `POST kayitlar.php`.
+- Kimlik: her istekte `X-Api-Key` başlığı. Anahtar ayar ekranından girilir (EncryptedSharedPreferences), koda/repoya yazılmaz. Anahtarı kullanıcı verir.
+- Zaman aşımı: bağlantı 10 sn, okuma 30 sn.
+- Gönderim zarfı: `{gonderimElapsedRealtime (zorunlu, her denemede o an okunur), gonderimZamani (önerilir), kayitlar[1..500]}`.
+- Kayıt alanları: `kayit` (UUID, kayıt oluşurken bir kez üretilir, yeniden denemede aynı kalır), `cihazAdi`, `logTipi`, `enlem`, `boylam` (ikisi birlikte dolu ya da birlikte null), `dogruluk`, `pilYuzdesi`, `sarjdaMi` (bool), `pilSicakligi`, `aracHareketli` (bool), `konumZamani` (ISO 8601 saat dilimli, zorunlu), `elapsedRealtime` (kayıt oluşurken okunur, zorunlu), `konumYasiMs`.
+- **200** = partideki tüm kayıtlar sunucuda kalıcı, telefon partiyi siler. Aynı UUID tekrar gelirse hata yok (yeniden gönderim güvenli).
+- Hata davranışı: ağ hatası/timeout/5xx/503/3xx → silme, backoff (30 sn → 1 dk → 2 dk … en çok 15 dk, ağ gelince hemen) ile aynı partiyi yeniden dene. 401 → silme, "API anahtarı hatalı" göster, anahtar düzelene dek dur. 413 → partiyi küçült (örn. 200). 422 `gecersiz_kayit` → hiçbir kayıt yazılmadı; `hatalar[].kayit/sira` ile listelenen kayıtları ayıkla (karantina/sil), kalanı yeniden gönder. 400/405/415 → bug, logla, döngüye sokma.
+- Ping yanıtı: 200 `ok` + `veritabani: ok` + `sunucuUnixMs` (saat sapmasını göstermek için); 401 anahtar yanlış; 503 veritabanı/yapılandırma hatası.
+- Sunucu yalnızca şu log tiplerini kabul eder (başkası 422): SARJ_BASLADI, SARJ_KESILDI, ARAC_HAREKET, ARAC_DURUYOR, KONUM, DURUM, KONUM_ALINAMADI, CIHAZ_ISINDI, CIHAZ_KRITIK_ISINDI, CIHAZ_SOGUDU. Yeni tip için önce sunucudaki liste güncellenmeli.
+
+Açık kararlar: geçersiz kayıtta tüm parti 422 ile reddediliyor (sunucuda "geçerlileri yaz" moduna çevrilebilir). Sunucu DB şifresinin değiştirilmesi önerildi (kullanıcıda). API anahtarını kullanıcı telefona ayar ekranından girecek.
