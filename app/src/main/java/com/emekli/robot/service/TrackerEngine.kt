@@ -438,7 +438,13 @@ class TrackerEngine(
                 running = started,
                 moving = movement.moving,
                 gpsMode = when (gpsMode) {
-                    GpsMode.OFF -> "KAPALI"
+                    GpsMode.OFF -> when {
+                        !started -> "KAPALI"
+                        !hasLocationPermission() -> "KAPALI (konum izni yok)"
+                        thermalStable.committed == ThermalState.KRITIK -> "DURDURULDU (aşırı sıcaklık)"
+                        battery.pct in 0 until Config.LOW_BATTERY_PCT && !battery.plugged -> "DURDURULDU (pil düşük)"
+                        else -> "BEKLEMEDE (durağan, pil tasarrufu)"
+                    }
                     GpsMode.MOVING -> "AÇIK (${currentInterval / 1000} sn)"
                     GpsMode.PROBE -> "AÇIK (hareket kontrolü)"
                 },
