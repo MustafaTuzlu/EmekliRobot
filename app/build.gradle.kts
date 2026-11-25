@@ -76,6 +76,15 @@ dependencies {
     // Konum
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
+    // Arayüz
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
     // Debug: bellek sızıntısı tespiti (7/24 çalışma için)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
+
+    // Birim testleri (saf mantık: hareket, termal, zaman, gönderim gövdesi)
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

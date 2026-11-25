@@ -31,6 +31,15 @@ class SettingsStore(context: Context) {
         set(value) = prefs.edit().putString(KEY_API_KEY, value.trim()).apply()
 
     companion object {
+        @Volatile
+        private var shared: SettingsStore? = null
+
+        /** Şifreli depo oluşturmak pahalı (Keystore); arka plan gönderimi için tek örnek paylaşılır. */
+        fun get(context: Context): SettingsStore =
+            shared ?: synchronized(this) {
+                shared ?: SettingsStore(context.applicationContext).also { shared = it }
+            }
+
         const val DEFAULT_URL = "https://marmaraofisetiket.net/api/emekli/"
         private const val FILE_NAME = "emekli_settings"
         private const val KEY_URL = "base_url"

@@ -3,12 +3,10 @@ package com.emekli.robot.net
 import android.os.SystemClock
 import okhttp3.Call
 import okhttp3.Callback
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
-import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 /**
@@ -19,12 +17,7 @@ object PingClient {
 
     data class Result(val ok: Boolean, val message: String)
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .build()
+    private val client get() = Http.client
 
     /** Sonuç `onResult` ile OkHttp iş parçacığında döner. Dönen Call iptal edilebilir. */
     fun ping(baseUrl: String, apiKey: String, onResult: (Result) -> Unit): Call? {

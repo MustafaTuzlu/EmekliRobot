@@ -38,6 +38,15 @@ Log tiplerinde Türkçe karakter kullanılmaz (yalnızca ASCII, büyük harf, al
 
 Enlem, boylam, doğruluk, pil yüzdesi, şarjda mı, pil sıcaklığı, konum zamanı (saniye hassasiyetli, ISO 8601 + saat dilimi, örn. `2026-11-25T14:03:07+03:00`), araç hareket/durağan durumu, log tipi, cihaz adı, kayıt UUID'si. Ek olarak `elapsedRealtime` ve konumun yaşı tutulur (saat sapması düzeltmesi için).
 
+## Uygulama Mimarisi (kodda)
+
+- `service/TrackerService`: ön plan servisi (location). `service/TrackerEngine`: tüm kurallar (şarj, hareket, termal, DURUM). Alarm (15 dk) ve `WatchdogWorker` servisi ayakta tutar, `BootReceiver` açılışta başlatır.
+- Araç durağanken GPS kapalı. Uyanma kaynakları: şarj bağlanması, significant-motion sensörü, 15 dk alarmı. Uyanınca 60 sn'lik kısa GPS penceresi açılır, hız 5 km/h üstü (art arda 2 örnek) görülürse HAREKET moduna geçilir.
+- `data/`: Room kuyruğu (`logs` tablosu = kuyruk, sunucu 200 dönünce satır silinir, 422'de `quarantined`). `sync/SyncEngine`: partili gönderim, backoff, 401/413/422 davranışı.
+- `konumZamani` = kaydın oluştuğu andaki duvar saati. Konumun kendi yaşı `konumYasiMs` ile gider. Konum alınamayan kayıtta enlem/boylam/dogruluk/konumYasiMs null.
+- Her `DURUM` kaydı atılır. 15 dk'dan eski konumda yeni fix denenir; başarısızsa önce `KONUM_ALINAMADI` (tek sefer), sonra son bilinen konumla `DURUM`.
+- Saf mantık (hareket, termal, debounce, zaman, gönderim gövdesi) birim testlidir: `./gradlew testDebugUnitTest`.
+
 ## Kurallar ve Eşikler
 
 - **Hareket:** Hız 5 km/h üzerine çıkarsa `ARAC_HAREKET`. Hız 2 dk boyunca 5 km/h altında kalırsa `ARAC_DURUYOR`.
