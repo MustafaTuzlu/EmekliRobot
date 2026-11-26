@@ -1,5 +1,6 @@
 package com.emekli.robot.service
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -63,13 +64,17 @@ class TrackerService : Service() {
         engine?.start()
         registerNetworkCallback()
         updateNotification()
-        main.postDelayed(commandTick, CommandPoller.POLL_MS)
+        if (isOnline()) armCommandAlarm()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Foreground servis her başlatılışta kısa sürede startForeground çağırmalı.
         startForeground(NOTIF_ID, buildNotification(statusText()), foregroundType())
         val action = intent?.action
+        if (action == ACTION_COMMAND) {
+            commandTick()
+            return START_STICKY
+        }
         // Servis alarmla yeni doğduysa motor start() zaten kalp atışını yaptı: çift kayıt olmasın.
         if (action != null && !freshStart) engine?.onAlarm(action)
         freshStart = false
@@ -93,12 +98,28 @@ class TrackerService : Service() {
     }
 
     /** "Bana son durumu göster" komutu için hafif yoklama; internet varken (ayara göre şarjda değilken de). */
-    private val commandTick = object : Runnable {
-        override fun run() {
-            val rt = RuntimeState.flow.value
-            if (CommandPoller.shouldPoll(isOnline(), rt.thermal, rt.plugged, SettingsStore.get(this@TrackerService).pollWhenUnplugged)) CommandPoller.launch(this@TrackerService)
-            main.postDelayed(this, CommandPoller.POLL_MS)
+    private fun commandTick() {
+        val rt = RuntimeState.flow.value
+        val online = isOnline()
+        if (CommandPoller.shouldPoll(online, rt.thermal, rt.plugged, SettingsStore.get(this).pollWhenUnplugged)) {
+            CommandPoller.launch(this)
         }
+        // İnternet yokken alarm kurulmaz (pil); ağ gelince onAvailable yeniden kurar.
+        if (online) armCommandAlarm()
+    }
+
+    /**
+     * Handler.postDelayed ekran kapalıyken CPU uyuyunca çalışmaz; bu yüzden AlarmManager kullanılır.
+     * setAndAllowWhileIdle: sistem pil için toplu uyandırır (Doze'da ~9 dk'ya kadar uzayabilir).
+     */
+    private fun armCommandAlarm() {
+        val pi = PendingIntent.getForegroundService(
+            this, ACTION_COMMAND.hashCode(), Intent(this, TrackerService::class.java).setAction(ACTION_COMMAND),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + CommandPoller.POLL_MS, pi,
+        )
     }
 
     // ---- gönderim tetikleme -------------------------------------------------------------------
@@ -142,7 +163,7 @@ class TrackerService : Service() {
             override fun onAvailable(network: Network) {
                 // İnternet geri geldi: bekleme süresini sıfırla ve hemen dene.
                 SyncEngine.resetBackoff()
-                main.post { requestSync(force = true) }
+                main.post { requestSync(force = true); armCommandAlarm() }
             }
         }
         networkCallback = cb
@@ -200,6 +221,7 @@ class TrackerService : Service() {
     companion object {
         private const val CHANNEL_ID = "takip"
         private const val NOTIF_ID = 1
+        const val ACTION_COMMAND = "com.emekli.robot.COMMAND_POLL"
 
         /** İzin verilmişse servisi başlatır (zaten çalışıyorsa zararsız). */
         fun start(context: Context) {

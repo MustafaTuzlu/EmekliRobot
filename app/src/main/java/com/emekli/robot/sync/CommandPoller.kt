@@ -6,6 +6,7 @@ import com.emekli.robot.BuildConfig
 import com.emekli.robot.core.CrashLog
 import com.emekli.robot.core.RuntimeState
 import com.emekli.robot.core.ThermalState
+import com.emekli.robot.core.TimeFmt
 import com.emekli.robot.data.AppDatabase
 import com.emekli.robot.net.Http
 import com.emekli.robot.settings.SettingsStore
@@ -42,6 +43,13 @@ object CommandPoller {
     /** Elle "Şimdi gönder": bekleme süresini sıfırlayıp hemen sorar. */
     fun resetBackoff() { nextAllowedElapsed = 0L }
 
+    /** Ana ekranda gösterilen son yoklama sonucu (teşhis için). */
+    val status = kotlinx.coroutines.flow.MutableStateFlow("henüz yoklanmadı")
+
+    private fun note(msg: String) {
+        status.value = TimeFmt.short(System.currentTimeMillis()) + " · " + msg
+    }
+
     private val mutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val JSON = "application/json; charset=utf-8".toMediaType()
@@ -68,6 +76,7 @@ object CommandPoller {
             try {
                 val id = fetchCommandId(base, key, deviceName)
                 if (id == null) return@withContext
+                note("komut bulundu #$id")
                 if (id == lastAnsweredId && now - lastAnsweredElapsed < MIN_ANSWER_GAP_MS) return@withContext
                 if (now - lastAnsweredElapsed < MIN_ANSWER_GAP_MS) return@withContext
                 val pending = AppDatabase.get(ctx).logDao().pendingNow()
@@ -83,11 +92,15 @@ object CommandPoller {
                 if (postAnlik(base, key, deviceName, id, anlik)) {
                     lastAnsweredId = id
                     lastAnsweredElapsed = SystemClock.elapsedRealtime()
+                    note("komut #$id cevaplandı ✔")
+                } else {
+                    note("anlik.php cevabı reddedildi (#$id)")
                 }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 nextAllowedElapsed = SystemClock.elapsedRealtime() + ERROR_BACKOFF_MS
+                note("hata: ${e.javaClass.simpleName} (5 dk sonra tekrar)")
             }
         } finally {
             mutex.unlock()
@@ -102,9 +115,12 @@ object CommandPoller {
         Http.client.newCall(req).execute().use {
             if (it.code != 200) {
                 nextAllowedElapsed = SystemClock.elapsedRealtime() + ERROR_BACKOFF_MS
+                note("komut.php HTTP ${it.code} (5 dk sonra tekrar)")
                 return null
             }
-            return parseCommandId(it.body?.string().orEmpty())
+            val id = parseCommandId(it.body?.string().orEmpty())
+            if (id == null) note("komut yok")
+            return id
         }
     }
 

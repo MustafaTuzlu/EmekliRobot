@@ -127,6 +127,8 @@ class MainActivity : AppCompatActivity() {
             if (rt.plugged == true) "kontak açık: her 60 sn 20 sn GPS + sensör" else "kontak kapalı: sensör + 15 dk",
         ).append('\n')
 
+        b.append("Komut yoklama: ").append(CommandPoller.status.value).append('\n')
+
         val konum = if (rt.lat != null && rt.lon != null) {
             val age = rt.fixElapsedMs?.let { TimeFmt.ago(now - it) } ?: "?"
             String.format(Locale.US, "%.5f, %.5f ±%.0fm (%s)", rt.lat, rt.lon, rt.accuracyM ?: 0.0, age)
