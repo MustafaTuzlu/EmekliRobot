@@ -60,6 +60,13 @@ class AboutActivity : AppCompatActivity() {
                 "okunur ve saatlik kovaya eklenir; ek pil harcamaz. Veriler yalnızca telefonda tutulur, siteye gönderilmez; \"Sıfırla\" ile silinir.\n\n" +
                 "Örnek: Bu ay 6,4 MB görünüyorsa, SIM'li bir hatta uygulama bu ay yaklaşık 6,4 MB kota harcamış demektir.",
 
+            "Güncelleme" to
+                "Ana ekrandaki \"Güncellemeyi kontrol et\" butonu sunucudaki sürümü sorar. Yeni sürüm varsa APK'yı indirir, " +
+                "SHA-256 ve paket bilgisiyle doğrular, sonra Android'in kurulum ekranını açar; \"Yükle\"ye basmanız gerekir " +
+                "(Android 10 sessiz kurulum yapmaz). Kurulum bitince uygulama kendiliğinden yeniden başlar.\n\n" +
+                "Örnek: 1.0.7 kurulu, sunucuda 1.0.8 var. Butona basarsınız, \"1.0.8 (16,6 MB)\" görürsünüz, Güncelle'ye basarsınız. " +
+                "Araç hareket halindeyse ya da pil çok düşük ve şarjda değilse güncelleme başlamaz.",
+
             "Log tipleri ve ne zaman atılır" to
                 "SARJ_BASLADI: şarj başladı, kontak açıldı.\n" +
                 "SARJ_KESILDI: şarj kesildi, kontak kapandı.\n" +

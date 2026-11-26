@@ -172,6 +172,13 @@
                 android:text="Veri kullanımı" />
 
             <Button
+                android:id="@+id/btnUpdate"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Güncellemeyi kontrol et" />
+
+            <Button
                 android:id="@+id/btnAbout"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"

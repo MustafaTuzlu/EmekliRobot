@@ -33,8 +33,8 @@ android {
         applicationId = "com.emekli.robot"
         minSdk = 29
         targetSdk = 34
-        versionCode = 106 // major*100 + minor*10 + patch (1.0.0 = 100)
-        versionName = "1.0.6"
+        versionCode = 107 // major*100 + minor*10 + patch (1.0.0 = 100)
+        versionName = "1.0.7"
 
         buildConfigField("String", "SETTINGS_PIN_SALT", "\"$pinSalt\"")
         buildConfigField("String", "SETTINGS_PIN_HASH", "\"$pinHash\"")

@@ -126,9 +126,13 @@ Site bir cihaz için komut açar (sunucuda tek bekleyen komut, 30 dk geçerli). 
 
 Ana ekranda "Veri kullanımı" butonu (`UsageActivity`). `net/UsageMeter`: OkHttp `EventListener` her çağrı bitince (callEnd/callFailed) Android'in uygulama (UID) `TrafficStats` sayaçlarını okur, önceki okumayla farkı (`UsageBuckets.delta`, yeniden başlatmada sayaç küçülürse yeni değer) saatlik kovaya yazar (Room `usage` tablosu, DB v3). Ek uyanma yok. Saat/gün/hafta (PAZARTESİ başlar)/ay/yıl toplamları `UsageBuckets` ile satırlardan hesaplanır, grafik kütüphanesiz (`UsageChartView`). Veri siteye gönderilmez; "Sıfırla" tabloyu siler (şifre yok). Birim 1 KB = 1024 bayt.
 
+## Uygulama içi güncelleme
+
+Ana ekranda "Güncellemeyi kontrol et" (`UpdateActivity`, yalnızca elle). `GET surum.php` ({versionCode, versionName, sha256, boyut, notlar}) ile sürüm sorulur; `versionCode` mevcuttan büyükse `GET indir.php` ile `cache/updates/emekli.apk` indirilir, boyut + SHA-256 + paket adı/sürüm kodu doğrulanır, FileProvider ile Android kurulum ekranı açılır (Android 10'da her seferinde kullanıcı onayı; "bilinmeyen kaynak" izni gerekir). Araç hareketteyken veya pil <%15 ve şarjda değilken başlamaz. Kurulum sonrası `MY_PACKAGE_REPLACED` ile servis yeniden başlar. **İmza:** güncelleme eski sürümle aynı anahtarla imzalı olmalı; debug anahtarı `~/.android/debug.keystore` (yedek: `~/Documents/emekli-debug.keystore.yedek`) değiştirilmez, yoksa telefona silip yeniden kurmak gerekir. Yayın: `emekli.apk` + `surum.json` sunucuda `api/emekli/yayin/` klasörüne FTP ile elle atılır (sözleşme v1.2, sunucu repo).
+
 ## Sürüm numarası
 
-`app/build.gradle.kts` içinde `versionName` (şu an 1.0.6) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
+`app/build.gradle.kts` içinde `versionName` (şu an 1.0.7) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
 
 ## Sunucu API'si
 

@@ -532,6 +532,47 @@ class CoreLogicTest {
         assertEquals("samsung-SM-N960F-5a61", r.getString("cihazAdi"))
     }
 
+    // ---- güncelleme --------------------------------------------------------------------------
+
+    private val sha64 = "a".repeat(64)
+    private fun upd(code: Int = 108, sha: String = sha64, size: Long = 100) =
+        "{\"versionCode\":$code,\"versionName\":\"1.0.8\",\"sha256\":\"$sha\",\"boyut\":$size,\"notlar\":\"x\"}"
+
+    @Test fun update_parseValidAndInvalid() {
+        val L = com.emekli.robot.core.UpdateLogic
+        assertEquals(108, L.parse(upd())!!.versionCode)
+        assertEquals(sha64, L.parse(upd(sha = "A".repeat(64)))!!.sha256)
+        assertNull(L.parse(upd(sha = "zz")))
+        assertNull(L.parse(upd(code = 0)))
+        assertNull(L.parse(upd(size = 0)))
+        assertNull(L.parse("{\"versionCode\":1}"))
+        assertNull(L.parse("bozuk"))
+    }
+
+    @Test fun update_isNewerOnlyIfStrictlyGreater() {
+        val L = com.emekli.robot.core.UpdateLogic
+        val i = L.parse(upd(code = 108))!!
+        assertTrue(L.isNewer(i, 107))
+        assertFalse(L.isNewer(i, 108))
+        assertFalse(L.isNewer(i, 109))
+    }
+
+    @Test fun update_blockReason() {
+        val L = com.emekli.robot.core.UpdateLogic
+        assertNotNull(L.blockReason(true, 80, true))
+        assertNotNull(L.blockReason(false, 10, false))
+        assertNull(L.blockReason(false, 10, true))
+        assertNull(L.blockReason(false, 50, false))
+        assertNull(L.blockReason(false, null, null))
+    }
+
+    @Test fun update_sha256OfFile() {
+        val f = java.io.File.createTempFile("upd", ".bin")
+        f.writeBytes("abc".toByteArray())
+        assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", com.emekli.robot.core.UpdateLogic.sha256Hex(f))
+        f.delete()
+    }
+
     // ---- veri kullanımı ------------------------------------------------------------------------
 
     private val tr = java.time.ZoneId.of("Europe/Istanbul")
