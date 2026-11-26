@@ -122,9 +122,13 @@ Açık konular: URL HTTPS olmalı; HTTP ise özel izin tanımlanması gerekir (k
 
 Site bir cihaz için komut açar (sunucuda tek bekleyen komut, 30 dk geçerli). Telefon `CommandPoller` ile `GET komut.php?cihazAdi=` yoklar: internet var + termal NORMAL + (şarjda ya da ayarda "şarjda değilken de yokla" işaretli, varsayılan işaretli) iken 60 sn'de bir (AlarmManager `setAndAllowWhileIdle`, ekran kapalıyken Handler çalışmaz; Doze'da ~9 dk'ya uzayabilir; internet yokken alarm kurulmaz); ana ekranda "Komut yoklama" satırı son sonucu gösterir; "Şimdi gönder" butonu da hemen yoklar, ayrıca her başarılı kayıt gönderiminden sonra bir kez. Komut `DURUM_ISTE` ise `AnlikBuilder` ile tüm bilgiyi toplayıp `POST anlik.php` yapar (en az 30 sn arayla). Bu veri Room kuyruğuna/log tablosuna girmez. Hatada 5 dk bekler, ekrandaki gönderim durumunu bozmaz. Sözleşme: sunucu repo `docs/emekli-robot-api.md` v1.1.
 
+## Veri kullanımı ölçümü
+
+Ana ekranda "Veri kullanımı" butonu (`UsageActivity`). `net/UsageMeter`: OkHttp `EventListener` her çağrı bitince (callEnd/callFailed) Android'in uygulama (UID) `TrafficStats` sayaçlarını okur, önceki okumayla farkı (`UsageBuckets.delta`, yeniden başlatmada sayaç küçülürse yeni değer) saatlik kovaya yazar (Room `usage` tablosu, DB v3). Ek uyanma yok. Saat/gün/hafta (PAZARTESİ başlar)/ay/yıl toplamları `UsageBuckets` ile satırlardan hesaplanır, grafik kütüphanesiz (`UsageChartView`). Veri siteye gönderilmez; "Sıfırla" tabloyu siler (şifre yok). Birim 1 KB = 1024 bayt.
+
 ## Sürüm numarası
 
-`app/build.gradle.kts` içinde `versionName` (şu an 1.0.5) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
+`app/build.gradle.kts` içinde `versionName` (şu an 1.0.6) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
 
 ## Sunucu API'si
 

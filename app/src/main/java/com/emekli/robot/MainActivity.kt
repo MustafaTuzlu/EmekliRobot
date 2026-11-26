@@ -79,6 +79,9 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, PendingLogsActivity::class.java))
         }
         findViewById<Button>(R.id.btnSettings).setOnClickListener { askPin() }
+        findViewById<Button>(R.id.btnUsage).setOnClickListener {
+            startActivity(Intent(this, UsageActivity::class.java))
+        }
         findViewById<Button>(R.id.btnAbout).setOnClickListener {
             startActivity(Intent(this, AboutActivity::class.java))
         }

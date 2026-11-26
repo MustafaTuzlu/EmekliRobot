@@ -54,6 +54,12 @@ class AboutActivity : AppCompatActivity() {
                 "Örnek: Telefon garajda Wi-Fi'sızdır, siz 10 kez butona bastınız. 09:00'da araç hotspot'a bağlanınca tek bir cevap gider " +
                 "(10 değil). İstek 30 dakika içinde cevaplanmazsa zaman aşımına uğrar. Isınma durumunda (ISINDI/KRİTİK) bu yoklama yapılmaz.",
 
+            "Veri kullanımı" to
+                "Ana ekrandaki \"Veri kullanımı\" butonu, uygulamanın sunucuyla yaptığı gerçek veri alışverişini (gönderilen ve alınan) " +
+                "saat, gün, hafta (Pazartesi başlar), ay ve yıl bazında grafikle gösterir. Her sunucu isteği bitince Android'in uygulama sayacı " +
+                "okunur ve saatlik kovaya eklenir; ek pil harcamaz. Veriler yalnızca telefonda tutulur, siteye gönderilmez; \"Sıfırla\" ile silinir.\n\n" +
+                "Örnek: Bu ay 6,4 MB görünüyorsa, SIM'li bir hatta uygulama bu ay yaklaşık 6,4 MB kota harcamış demektir.",
+
             "Log tipleri ve ne zaman atılır" to
                 "SARJ_BASLADI: şarj başladı, kontak açıldı.\n" +
                 "SARJ_KESILDI: şarj kesildi, kontak kapandı.\n" +

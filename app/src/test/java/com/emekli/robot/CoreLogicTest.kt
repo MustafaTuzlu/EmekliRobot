@@ -19,6 +19,7 @@ import com.emekli.robot.core.DeviceName
 import com.emekli.robot.core.ParkedPosition
 import com.emekli.robot.sync.PayloadBuilder
 import com.emekli.robot.sync.SyncPolicy
+import com.emekli.robot.core.UsageBuckets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -529,6 +530,63 @@ class CoreLogicTest {
     @Test fun payload_usesGivenDeviceName() {
         val r = PayloadBuilder.record(entity(LogTypes.DURUM, 41.0, 29.0), "samsung-SM-N960F-5a61")
         assertEquals("samsung-SM-N960F-5a61", r.getString("cihazAdi"))
+    }
+
+    // ---- veri kullanımı ------------------------------------------------------------------------
+
+    private val tr = java.time.ZoneId.of("Europe/Istanbul")
+    private fun ms(y: Int, mo: Int, d: Int, h: Int = 0) =
+        java.time.ZonedDateTime.of(y, mo, d, h, 0, 0, 0, tr).toInstant().toEpochMilli()
+
+    @Test fun usage_weekStartsMonday() {
+        // 2026-11-26 Perşembe -> hafta başı 2026-11-23 Pazartesi
+        assertEquals(ms(2026, 11, 23), UsageBuckets.bucketStart(
+            UsageBuckets.Range.HAFTA, ms(2026, 11, 26, 15), tr))
+        // Pazar günü de önceki Pazartesiye düşer (2026-11-29 -> 11-23)
+        assertEquals(ms(2026, 11, 23), UsageBuckets.bucketStart(
+            UsageBuckets.Range.HAFTA, ms(2026, 11, 29, 23), tr))
+    }
+
+    @Test fun usage_monthAndYearStart() {
+        assertEquals(ms(2026, 11, 1), UsageBuckets.bucketStart(UsageBuckets.Range.AY, ms(2026, 11, 26, 5), tr))
+        assertEquals(ms(2026, 1, 1), UsageBuckets.bucketStart(UsageBuckets.Range.YIL, ms(2026, 11, 26, 5), tr))
+    }
+
+    @Test fun usage_aggregateFillsEmptyBucketsAndSums() {
+        val now = ms(2026, 11, 26, 15)
+        val rows = listOf(
+            UsageBuckets.Row(ms(2026, 11, 26, 9), 1000, 2000, 2),
+            UsageBuckets.Row(ms(2026, 11, 26, 10), 500, 500, 1),
+            UsageBuckets.Row(ms(2026, 11, 25, 12), 100, 200, 1),
+            UsageBuckets.Row(ms(2020, 1, 1, 0), 9999, 9999, 9), // pencere dışı
+        )
+        val days = UsageBuckets.aggregate(rows, UsageBuckets.Range.GUN, now, tr)
+        assertEquals(30, days.size)
+        assertEquals(ms(2026, 11, 26), days.last().start)
+        assertEquals(1500L, days.last().tx)
+        assertEquals(2500L, days.last().rx)
+        assertEquals(3, days.last().requests)
+        assertEquals(100L, days[days.size - 2].tx)
+        assertEquals(0L, days[0].total)
+        assertEquals(1500L + 100L, days.sumOf { it.tx })
+    }
+
+    @Test fun usage_windowSizes() {
+        val now = ms(2026, 11, 26, 15)
+        UsageBuckets.Range.values().forEach { assertEquals(it.count, UsageBuckets.aggregate(emptyList(), it, now, tr).size) }
+    }
+
+    @Test fun usage_deltaHandlesReboot() {
+        assertEquals(0L, UsageBuckets.delta(null, 5000))
+        assertEquals(300L, UsageBuckets.delta(1000, 1300))
+        assertEquals(40L, UsageBuckets.delta(1000, 40)) // sayaç sıfırlandı
+    }
+
+    @Test fun usage_formatBytes() {
+        assertEquals("512 B", UsageBuckets.formatBytes(512))
+        assertEquals("1.5 KB", UsageBuckets.formatBytes(1536))
+        assertEquals("2.00 MB", UsageBuckets.formatBytes(2L * 1024 * 1024))
+        assertEquals("1.000 GB", UsageBuckets.formatBytes(1024L * 1024 * 1024))
     }
 
     // ---- anlık durum / komut -----------------------------------------------------------------

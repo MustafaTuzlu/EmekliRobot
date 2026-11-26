@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/screen_bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Veri kullanımı"
+            android:textColor="@color/brand_navy"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtUnsupported"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="#B00020"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/rangeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:selectionRequired="true"
+            app:singleSelection="true"
+            xmlns:app="http://schemas.android.com/apk/res-auto">
+
+            <Button android:id="@+id/rSaat" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:insetLeft="0dp" android:insetRight="0dp" android:paddingHorizontal="0dp" android:text="Saat" android:textSize="12sp" />
+            <Button android:id="@+id/rGun" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:insetLeft="0dp" android:insetRight="0dp" android:paddingHorizontal="0dp" android:text="Gün" android:textSize="12sp" />
+            <Button android:id="@+id/rHafta" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:insetLeft="0dp" android:insetRight="0dp" android:paddingHorizontal="0dp" android:text="Hafta" android:textSize="12sp" />
+            <Button android:id="@+id/rAy" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:insetLeft="0dp" android:insetRight="0dp" android:paddingHorizontal="0dp" android:text="Ay" android:textSize="12sp" />
+            <Button android:id="@+id/rYil" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:insetLeft="0dp" android:insetRight="0dp" android:paddingHorizontal="0dp" android:text="Yıl" android:textSize="12sp" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <TextView
+            android:id="@+id/txtTotal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textColor="@color/brand_navy"
+            android:textSize="15sp" />
+
+        <com.emekli.robot.UsageChartView
+            android:id="@+id/chart"
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginTop="12dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="■ Gönderilen (yeşil)   ■ Alınan (lacivert)"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/txtPick"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Değerler uygulamanın gerçek ağ trafiğidir (şifreleme ve bağlantı yükü dahil), 1 KB = 1024 bayt. Veriler yalnızca bu telefonda tutulur, siteye gönderilmez. Hafta Pazartesi başlar."
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btnReset"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Sıfırla" />
+    </LinearLayout>
+</ScrollView>

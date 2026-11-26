@@ -10,5 +10,6 @@ object Http {
         .readTimeout(30, TimeUnit.SECONDS)
         .followRedirects(false)
         .followSslRedirects(false)
+        .eventListener(UsageMeter.listener)
         .build()
 }

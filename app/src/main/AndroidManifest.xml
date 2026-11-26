@@ -41,6 +41,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".UsageActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".AboutActivity"
             android:exported="false" />
 

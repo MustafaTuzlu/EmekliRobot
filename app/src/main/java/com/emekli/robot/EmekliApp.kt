@@ -10,6 +10,7 @@ class EmekliApp : Application() {
         super.onCreate()
         CrashLog.install(this)
         SyncStatus.init(this)
+        com.emekli.robot.net.UsageMeter.init(this)
         WatchdogWorker.schedule(this)
     }
 }

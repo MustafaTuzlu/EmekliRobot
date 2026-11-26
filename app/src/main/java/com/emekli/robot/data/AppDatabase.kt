@@ -7,9 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [LogEntity::class], version = 2, exportSchema = false)
+@Database(entities = [LogEntity::class, UsageEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun logDao(): LogDao
+    abstract fun usageDao(): UsageDao
 
     companion object {
         /** v1 -> v2: hız ve yön sütunları (kuyruktaki eski kayıtlar korunur). */
@@ -20,6 +21,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v2 -> v3: saatlik veri kullanımı tablosu. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `usage` (`hourStart` INTEGER NOT NULL, `txBytes` INTEGER NOT NULL, " +
+                        "`rxBytes` INTEGER NOT NULL, `requests` INTEGER NOT NULL, PRIMARY KEY(`hourStart`))",
+                )
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -27,7 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext, AppDatabase::class.java, "emekli_queue.db",
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
     }
 }
