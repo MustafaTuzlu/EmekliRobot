@@ -118,9 +118,13 @@ Servis arka planda ayrı çalışır; ekranı açmak/kapatmak veri toplamayı et
 
 Açık konular: URL HTTPS olmalı; HTTP ise özel izin tanımlanması gerekir (karar bekliyor).
 
+## Anlık durum isteği ("Bana son durumu göster")
+
+Site bir cihaz için komut açar (sunucuda tek bekleyen komut, 30 dk geçerli). Telefon `CommandPoller` ile `GET komut.php?cihazAdi=` yoklar: internet var + şarjda + termal NORMAL iken 60 sn'de bir, ayrıca her başarılı kayıt gönderiminden sonra bir kez. Komut `DURUM_ISTE` ise `AnlikBuilder` ile tüm bilgiyi toplayıp `POST anlik.php` yapar (en az 30 sn arayla). Bu veri Room kuyruğuna/log tablosuna girmez. Hatada 5 dk bekler, ekrandaki gönderim durumunu bozmaz. Sözleşme: sunucu repo `docs/emekli-robot-api.md` v1.1.
+
 ## Sürüm numarası
 
-`app/build.gradle.kts` içinde `versionName` (şu an 1.0.2) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
+`app/build.gradle.kts` içinde `versionName` (şu an 1.0.3) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
 
 ## Sunucu API'si
 

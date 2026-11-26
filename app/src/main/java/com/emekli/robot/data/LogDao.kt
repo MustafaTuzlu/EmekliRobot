@@ -29,6 +29,9 @@ interface LogDao {
     suspend fun deleteOldestKonum(count: Int)
 
     @Query("SELECT COUNT(*) FROM logs WHERE quarantined = 0")
+    suspend fun pendingNow(): Int
+
+    @Query("SELECT COUNT(*) FROM logs WHERE quarantined = 0")
     fun pendingCount(): Flow<Int>
 
     @Query("SELECT * FROM logs ORDER BY id DESC LIMIT 1")

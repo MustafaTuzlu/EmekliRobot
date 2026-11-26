@@ -35,6 +35,7 @@ object SyncEngine {
     @Volatile private var batchSize = Config.BATCH_SIZE
     /** 401 alınan anahtar; anahtar değişene kadar (elle gönder hariç) denenmez. */
     @Volatile private var authBlockedFor: String? = null
+    @Volatile private var syncedOk = false
 
     /** Ekrandan/servisten ateşle-unut. */
     fun launch(context: Context, force: Boolean) {
@@ -50,11 +51,16 @@ object SyncEngine {
 
     suspend fun run(context: Context, force: Boolean) = withContext(Dispatchers.IO) {
         if (!mutex.tryLock()) return@withContext
+        var ok = false
         try {
+            syncedOk = false
             doRun(context.applicationContext, force)
+            ok = syncedOk
         } finally {
             mutex.unlock()
         }
+        // Başarılı gönderimden sonra internet var demektir: bekleyen "son durum" komutuna bir kez bak.
+        if (ok) CommandPoller.run(context.applicationContext)
     }
 
     private suspend fun doRun(ctx: Context, force: Boolean) {
@@ -166,6 +172,7 @@ object SyncEngine {
         try { JSONObject(body).optJSONObject("hata")?.optString("kod").orEmpty() } catch (e: Exception) { "" }
 
     private fun succeed(message: String) {
+        syncedOk = true
         SyncStatus.success(message)
     }
 

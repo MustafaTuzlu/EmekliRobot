@@ -46,6 +46,14 @@ class AboutActivity : AppCompatActivity() {
                 "Gevşek kablo kayıt kirletmesin diye durum 15 saniye sabit kalırsa kayıt atılır.\n\n" +
                 "Örnek: Kontağı 08:00:00'da açtınız. Kayıt 08:00:15'te oluşur ama saati 08:00:00 yazılır (değişimin ilk görüldüğü an).",
 
+            "Sitedeki \"Bana son durumu göster\"" to
+                "Siteden bir cihaz için bu butona basılınca sunucuda bir istek açılır. Telefon internetteyken ve şarjdayken " +
+                "dakikada bir sunucuya \"bana istek var mı?\" diye küçük bir soru sorar (yaklaşık 200 bayt); her başarılı kayıt " +
+                "gönderiminden sonra da bir kez sorar. İstek varsa konum, pil, sıcaklık, hız, kuyruk gibi tüm bilgiyi bir kez gönderir. " +
+                "Bu bilgi log olarak kaydedilmez, kuyruğa girmez; sitede yalnızca \"son durum\" olarak görünür.\n\n" +
+                "Örnek: Telefon garajda Wi-Fi'sızdır, siz 10 kez butona bastınız. 09:00'da araç hotspot'a bağlanınca tek bir cevap gider " +
+                "(10 değil). İstek 30 dakika içinde cevaplanmazsa zaman aşımına uğrar. Isınma durumunda (ISINDI/KRİTİK) bu yoklama yapılmaz.",
+
             "Log tipleri ve ne zaman atılır" to
                 "SARJ_BASLADI: şarj başladı, kontak açıldı.\n" +
                 "SARJ_KESILDI: şarj kesildi, kontak kapandı.\n" +

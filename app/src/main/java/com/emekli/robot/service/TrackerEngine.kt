@@ -707,6 +707,8 @@ class TrackerEngine(
                 lastMotionElapsedMs = lastMotionElapsedMs,
                 rejectedFixes = rejectedFixes,
                 lastRejectedAccM = lastRejectedAccM,
+                speedMps = loc?.takeIf { l -> l.hasSpeed() }?.speed?.toDouble(),
+                bearingDeg = loc?.takeIf { l -> l.hasBearing() }?.bearing?.toDouble(),
             )
         }
     }

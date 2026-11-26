@@ -26,6 +26,9 @@ data class RuntimeSnapshot(
     /** Kalite filtresinin reddettiği zayıf/sıçrama konum sayısı ve sonuncunun doğruluğu. */
     val rejectedFixes: Int = 0,
     val lastRejectedAccM: Double? = null,
+    /** Son fix'in ham hız (m/s) ve yönü; yaş kuralı anlık durum kurulurken uygulanır. */
+    val speedMps: Double? = null,
+    val bearingDeg: Double? = null,
 )
 
 object RuntimeState {

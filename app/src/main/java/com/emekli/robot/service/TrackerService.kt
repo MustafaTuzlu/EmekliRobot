@@ -22,6 +22,7 @@ import com.emekli.robot.MainActivity
 import com.emekli.robot.R
 import com.emekli.robot.core.RuntimeState
 import com.emekli.robot.core.ThermalState
+import com.emekli.robot.sync.CommandPoller
 import com.emekli.robot.sync.SyncEngine
 import com.emekli.robot.sync.SyncPolicy
 import kotlinx.coroutines.CoroutineScope
@@ -61,6 +62,7 @@ class TrackerService : Service() {
         engine?.start()
         registerNetworkCallback()
         updateNotification()
+        main.postDelayed(commandTick, CommandPoller.POLL_MS)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -87,6 +89,15 @@ class TrackerService : Service() {
         scope = null
         RuntimeState.update { it.copy(running = false) }
         super.onDestroy()
+    }
+
+    /** "Bana son durumu göster" komutu için hafif yoklama; yalnızca internet varken ve şarjdayken. */
+    private val commandTick = object : Runnable {
+        override fun run() {
+            val rt = RuntimeState.flow.value
+            if (CommandPoller.shouldPoll(isOnline(), rt.thermal, rt.plugged)) CommandPoller.launch(this@TrackerService)
+            main.postDelayed(this, CommandPoller.POLL_MS)
+        }
     }
 
     // ---- gönderim tetikleme -------------------------------------------------------------------

@@ -530,4 +530,56 @@ class CoreLogicTest {
         val r = PayloadBuilder.record(entity(LogTypes.DURUM, 41.0, 29.0), "samsung-SM-N960F-5a61")
         assertEquals("samsung-SM-N960F-5a61", r.getString("cihazAdi"))
     }
+
+    // ---- anlık durum / komut -----------------------------------------------------------------
+
+    private fun rt(thermal: com.emekli.robot.core.ThermalState = com.emekli.robot.core.ThermalState.NORMAL) =
+        com.emekli.robot.core.RuntimeSnapshot(
+            running = true, moving = true, gpsMode = "AÇIK", thermal = thermal, plugged = true,
+            batteryPct = 80, batteryTempC = 31.5, lat = 41.0, lon = 29.0, accuracyM = 6.0,
+            fixElapsedMs = 100_000L, speedMps = 10.0, bearingDeg = 90.0,
+        )
+
+    @Test fun anlik_freshFixHasSpeedAndBearing() {
+        val o = com.emekli.robot.sync.AnlikBuilder.build(rt(), "1.0.3", 0L, 102_000L, 4, null, null)
+        assertEquals(36.0, o.getDouble("hizKmh"), 0.01)
+        assertEquals(90.0, o.getDouble("yon"), 0.01)
+        assertEquals(2000L, o.getLong("konumYasiMs"))
+        assertEquals("NORMAL", o.getString("termal"))
+        assertEquals(4, o.getInt("bekleyenKayit"))
+        assertTrue(o.isNull("sonGonderimZamani"))
+    }
+
+    @Test fun anlik_staleFixHasNoSpeedOrBearing() {
+        val o = com.emekli.robot.sync.AnlikBuilder.build(rt(), "1.0.3", 0L, 200_000L, 0, null, null)
+        assertTrue(o.isNull("hizKmh"))
+        assertTrue(o.isNull("yon"))
+        assertEquals(100_000L, o.getLong("konumYasiMs"))
+    }
+
+    @Test fun anlik_noPositionGivesNulls() {
+        val o = com.emekli.robot.sync.AnlikBuilder.build(
+            com.emekli.robot.core.RuntimeSnapshot(), "1.0.3", 0L, 5L, 0, null, "x".repeat(400),
+        )
+        assertTrue(o.isNull("enlem"))
+        assertTrue(o.isNull("konumYasiMs"))
+        assertEquals(300, o.getString("sonCokme").length)
+    }
+
+    @Test fun command_parse() {
+        assertEquals(12L, com.emekli.robot.sync.CommandPoller.parseCommandId("{\"komut\":{\"id\":12,\"tip\":\"DURUM_ISTE\"}}"))
+        assertNull(com.emekli.robot.sync.CommandPoller.parseCommandId("{\"komut\":null}"))
+        assertNull(com.emekli.robot.sync.CommandPoller.parseCommandId("{\"komut\":{\"id\":1,\"tip\":\"BASKA\"}}"))
+        assertNull(com.emekli.robot.sync.CommandPoller.parseCommandId("bozuk"))
+    }
+
+    @Test fun command_shouldPollOnlyOnlinePluggedNormal() {
+        val N = com.emekli.robot.core.ThermalState.NORMAL
+        val H = com.emekli.robot.core.ThermalState.ISINMIS
+        assertTrue(com.emekli.robot.sync.CommandPoller.shouldPoll(true, N, true))
+        assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(false, N, true))
+        assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(true, H, true))
+        assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(true, N, false))
+        assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(true, N, null))
+    }
 }
