@@ -32,9 +32,15 @@ object CommandPoller {
     const val MIN_ANSWER_GAP_MS = 30_000L
     private const val ERROR_BACKOFF_MS = 5 * 60_000L
 
-    /** Yalnızca internet varken, şarjdayken (kontak açık) ve termal NORMAL iken yoklanır. */
-    fun shouldPoll(online: Boolean, thermal: ThermalState, plugged: Boolean?): Boolean =
-        online && thermal == ThermalState.NORMAL && plugged == true
+    /**
+     * İnternet varken ve termal NORMAL iken yoklanır. Şarjda değilken yalnızca ayarda izin verilmişse
+     * (`allowUnplugged`; pil durumu bilinmiyorsa da şarjda sayılmaz).
+     */
+    fun shouldPoll(online: Boolean, thermal: ThermalState, plugged: Boolean?, allowUnplugged: Boolean = false): Boolean =
+        online && thermal == ThermalState.NORMAL && (plugged == true || allowUnplugged)
+
+    /** Elle "Şimdi gönder": bekleme süresini sıfırlayıp hemen sorar. */
+    fun resetBackoff() { nextAllowedElapsed = 0L }
 
     private val mutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

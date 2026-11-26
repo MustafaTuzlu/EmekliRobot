@@ -581,5 +581,8 @@ class CoreLogicTest {
         assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(true, H, true))
         assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(true, N, false))
         assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(true, N, null))
+        assertTrue(com.emekli.robot.sync.CommandPoller.shouldPoll(true, N, false, allowUnplugged = true))
+        assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(false, N, false, allowUnplugged = true))
+        assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(true, H, false, allowUnplugged = true))
     }
 }

@@ -22,6 +22,7 @@ import com.emekli.robot.MainActivity
 import com.emekli.robot.R
 import com.emekli.robot.core.RuntimeState
 import com.emekli.robot.core.ThermalState
+import com.emekli.robot.settings.SettingsStore
 import com.emekli.robot.sync.CommandPoller
 import com.emekli.robot.sync.SyncEngine
 import com.emekli.robot.sync.SyncPolicy
@@ -91,11 +92,11 @@ class TrackerService : Service() {
         super.onDestroy()
     }
 
-    /** "Bana son durumu göster" komutu için hafif yoklama; yalnızca internet varken ve şarjdayken. */
+    /** "Bana son durumu göster" komutu için hafif yoklama; internet varken (ayara göre şarjda değilken de). */
     private val commandTick = object : Runnable {
         override fun run() {
             val rt = RuntimeState.flow.value
-            if (CommandPoller.shouldPoll(isOnline(), rt.thermal, rt.plugged)) CommandPoller.launch(this@TrackerService)
+            if (CommandPoller.shouldPoll(isOnline(), rt.thermal, rt.plugged, SettingsStore.get(this@TrackerService).pollWhenUnplugged)) CommandPoller.launch(this@TrackerService)
             main.postDelayed(this, CommandPoller.POLL_MS)
         }
     }

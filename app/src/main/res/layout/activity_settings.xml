@@ -65,6 +65,13 @@
             android:layout_height="wrap_content"
             android:textSize="12sp" />
 
+        <CheckBox
+            android:id="@+id/checkUnplugged"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Şarjda değilken de &quot;son durumu göster&quot; isteğini yokla (internet varken, pil tüketimi çok az)" />
+
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"

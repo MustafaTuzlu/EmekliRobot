@@ -16,6 +16,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var editUrl: EditText
     private lateinit var editKey: EditText
     private lateinit var editDevice: EditText
+    private lateinit var checkUnplugged: android.widget.CheckBox
     private lateinit var txtResult: TextView
     private lateinit var btnTest: Button
     private var pending: Call? = null
@@ -28,6 +29,8 @@ class SettingsActivity : AppCompatActivity() {
         editUrl = findViewById(R.id.editUrl)
         editKey = findViewById(R.id.editKey)
         editDevice = findViewById(R.id.editDevice)
+        checkUnplugged = findViewById(R.id.checkUnplugged)
+        checkUnplugged.isChecked = store.pollWhenUnplugged
         txtResult = findViewById(R.id.txtResult)
         btnTest = findViewById(R.id.btnTest)
 
@@ -48,6 +51,7 @@ class SettingsActivity : AppCompatActivity() {
         store.baseUrl = editUrl.text.toString()
         store.apiKey = editKey.text.toString()
         store.deviceName = editDevice.text.toString()
+        store.pollWhenUnplugged = checkUnplugged.isChecked
         editDevice.setText(store.deviceName) // temizlenmiş hali göster
     }
 

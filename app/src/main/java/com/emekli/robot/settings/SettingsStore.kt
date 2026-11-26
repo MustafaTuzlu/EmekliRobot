@@ -38,6 +38,11 @@ class SettingsStore(context: Context) {
         get() = DeviceName.sanitize(prefs.getString(KEY_DEVICE, "") ?: "") ?: autoName
         set(value) = prefs.edit().putString(KEY_DEVICE, DeviceName.sanitize(value) ?: "").apply()
 
+    /** "Son durumu göster" yoklaması şarjda değilken de yapılsın mı (internet varken). Varsayılan: evet. */
+    var pollWhenUnplugged: Boolean
+        get() = prefs.getBoolean(KEY_POLL_UNPLUGGED, true)
+        set(value) = prefs.edit().putBoolean(KEY_POLL_UNPLUGGED, value).apply()
+
     /** Ad girilmediyse kullanılacak otomatik ad (düzenleme kutusunda ipucu olarak gösterilir). */
     val autoName: String = DeviceName.auto(
         Build.MANUFACTURER, Build.MODEL,
@@ -59,5 +64,6 @@ class SettingsStore(context: Context) {
         private const val KEY_URL = "base_url"
         private const val KEY_API_KEY = "api_key"
         private const val KEY_DEVICE = "device_name"
+        private const val KEY_POLL_UNPLUGGED = "poll_unplugged"
     }
 }

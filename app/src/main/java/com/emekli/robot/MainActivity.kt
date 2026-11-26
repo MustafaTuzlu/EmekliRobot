@@ -29,6 +29,7 @@ import com.emekli.robot.data.AppDatabase
 import com.emekli.robot.data.LogEntity
 import com.emekli.robot.service.TrackerService
 import com.emekli.robot.settings.PinGate
+import com.emekli.robot.sync.CommandPoller
 import com.emekli.robot.sync.SyncEngine
 import com.emekli.robot.sync.SyncSnapshot
 import com.emekli.robot.sync.SyncStatus
@@ -70,6 +71,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSyncNow).setOnClickListener {
             SyncEngine.resetBackoff()
             SyncEngine.launch(this, force = true)
+            CommandPoller.resetBackoff()
+            CommandPoller.launch(this)
             Toast.makeText(this, "Gönderim başlatıldı", Toast.LENGTH_SHORT).show()
         }
         findViewById<Button>(R.id.btnPending).setOnClickListener {

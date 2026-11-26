@@ -47,7 +47,7 @@ class AboutActivity : AppCompatActivity() {
                 "Örnek: Kontağı 08:00:00'da açtınız. Kayıt 08:00:15'te oluşur ama saati 08:00:00 yazılır (değişimin ilk görüldüğü an).",
 
             "Sitedeki \"Bana son durumu göster\"" to
-                "Siteden bir cihaz için bu butona basılınca sunucuda bir istek açılır. Telefon internetteyken ve şarjdayken " +
+                "Siteden bir cihaz için bu butona basılınca sunucuda bir istek açılır. Telefon internetteyken (şarjda değilken de, Sunucu ayarlarındaki kutu işaretliyse) " +
                 "dakikada bir sunucuya \"bana istek var mı?\" diye küçük bir soru sorar (yaklaşık 200 bayt); her başarılı kayıt " +
                 "gönderiminden sonra da bir kez sorar. İstek varsa konum, pil, sıcaklık, hız, kuyruk gibi tüm bilgiyi bir kez gönderir. " +
                 "Bu bilgi log olarak kaydedilmez, kuyruğa girmez; sitede yalnızca \"son durum\" olarak görünür.\n\n" +
