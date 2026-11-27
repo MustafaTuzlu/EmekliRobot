@@ -43,6 +43,16 @@ object Speed {
     fun distanceM(a: Pos, b: Pos) = distanceM(a.lat, a.lon, b.lat, b.lon)
 }
 
+object Heartbeat {
+    /**
+     * Araç "hareketli" iken kalp atışında DURUM yazılmalı mı? KONUM kayıtları akıyorsa hayır.
+     * `lastFixAgeMs`: son kabul edilen konumun yaşı, hiç konum yoksa null.
+     * Bu karar duruş kararı DEĞİLDİR: tünel "durdu" sayılmaz, araç hareketli kalır.
+     */
+    fun durumWhileMoving(lastFixAgeMs: Long?): Boolean =
+        lastFixAgeMs == null || lastFixAgeMs >= Config.MOVING_NO_FIX_DURUM_MS
+}
+
 /**
  * Hareket / durağan kararı. İki bağımsız kural, hangisi önce olursa:
  *

@@ -45,6 +45,8 @@ object Config {
     const val HEARTBEAT_MS = 15 * 60_000L        // DURUM
     const val STALE_FIX_MS = 15 * 60_000L        // son konum bundan eskiyse yeni fix dene
     const val FIX_TIMEOUT_MS = 60_000L
+    // "Hareketli" iken bu süredir kabul edilen konum yoksa (kapalı otopark) kalp atışında yine DURUM yazılır
+    const val MOVING_NO_FIX_DURUM_MS = 15 * 60_000L
     const val PROBE_MS = 60_000L                 // hareket var mı diye kısa GPS penceresi
     const val PROBE_INTERVAL_MS = 5_000L
     const val FALLBACK_PROBE_MS = 3 * 60_000L    // hareket sensörü yoksa (şarj yokken)

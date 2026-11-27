@@ -26,7 +26,7 @@ Eski bir telefonu **araç takip cihazı** olarak kullanan Android uygulaması. C
 | `ARAC_HAREKET` | Araç duruştan harekete geçti (geçiş anı) |
 | `ARAC_DURUYOR` | Araç hareketten duruşa geçti (geçiş anı) |
 | `KONUM` | Hareket halindeyken her **15 sn** |
-| `DURUM` | Durağanken her **15 dk** |
+| `DURUM` | Durağanken her **15 dk**; hareketliyken 15 dk'dır konum yoksa da |
 | `KONUM_ALINAMADI` | Konum alınamadığında |
 | `CIHAZ_ISINDI` | Pil sıcaklığı 45 °C ve üstüne çıktı, kısıtlı moda geçildi |
 | `CIHAZ_KRITIK_ISINDI` | Pil sıcaklığı 48 °C ve üstüne çıktı, her şey durduruldu |
@@ -60,6 +60,7 @@ Enlem, boylam, doğruluk, pil yüzdesi, şarjda mı, pil sıcaklığı, konum za
 - **Şarj debounce:** Şarj durumu değişimi 15 sn sabit kalırsa kayıt atılır (gevşek kablo spam'ini önler).
 - **`DURUM` kaydında konum:** Önce son bilinen konum. 15 dk'dan eskiyse tek seferlik GPS fix denenir, başarısızsa `KONUM_ALINAMADI`. Konumun yaşı kayda yazılır.
 - **`KONUM_ALINAMADI`:** 60 sn fix gelmezse bir kez yazılır, konum geri gelene kadar tekrar yazılmaz.
+- **Hareketliyken konumsuz kalma (kapalı otopark, v1.0.9):** Kalp atışında araç hareketli ve son kabul edilen konum 15 dk'dan eski (ya da hiç yok) ise yine `DURUM` yazılır (`Heartbeat.durumWhileMoving`, `Config.MOVING_NO_FIX_DURUM_MS`): son bilinen konum + gerçek `konumYasiMs` (konum yoksa null). Duruş kararı verilmez, `aracHareketli` true kalır (tünel "durdu" sayılmaz). İlk kayıt GPS kaybından yaklaşık 15-30 dk sonra gelir. KRİTİK modda hareketli kalan araç için de geçerlidir.
 - **Düşük pil:** Pil %5 altında yalnızca 15 dk'lık `DURUM` kaydı devam eder, GPS fix denenmez.
 - **Güç/disk:** Durağanken GPS kapalı, hareket sensörü/Activity Recognition ile beklenir. Yazmalar toplu (batch). Konum eşiğin altında değiştiyse diske yazılmaz.
 
@@ -132,7 +133,7 @@ Ana ekranda "Güncellemeyi kontrol et" (`UpdateActivity`, yalnızca elle). `GET 
 
 ## Sürüm numarası
 
-`app/build.gradle.kts` içinde `versionName` (şu an 1.0.8) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
+`app/build.gradle.kts` içinde `versionName` (şu an 1.0.9) ve `versionCode` (= major*100 + minor*10 + patch). **Her geliştirmede (commit'te) sürüm bir artırılır:** 1.0.0 → 1.0.1 → … → 1.0.9 → 1.1.0 → … → 1.9.9 → 2.0.0 (her basamak 0-9). Sürüm "PROGRAM HAKKINDA" ekranında en üstte görünür. Uygulamanın davranışı değişirse o ekrandaki açıklamalar (`AboutActivity.kt`) da güncellenir.
 
 ## Sunucu API'si
 

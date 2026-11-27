@@ -73,7 +73,7 @@ class AboutActivity : AppCompatActivity() {
                 "ARAC_HAREKET: araç duruştan harekete geçti (geçiş anı).\n" +
                 "ARAC_DURUYOR: araç hareketten durmaya geçti (geçiş anı).\n" +
                 "KONUM: araç hareket halindeyken yaklaşık 15 saniyede bir.\n" +
-                "DURUM: araç duruyorken 15 dakikada bir \"yaşıyorum\" kaydı.\n" +
+                "DURUM: araç duruyorken 15 dakikada bir \"yaşıyorum\" kaydı. Araç \"hareketli\" görünürken 15 dakikadır konum alınamıyorsa da yazılır (son bilinen konum ve yaşıyla).\n" +
                 "KONUM_ALINAMADI: GPS konumu alınamadı (tek sefer yazılır, konum gelince sıfırlanır).\n" +
                 "CIHAZ_ISINDI / CIHAZ_KRITIK_ISINDI / CIHAZ_SOGUDU: pil sıcaklığı olayları.",
 
@@ -94,6 +94,11 @@ class AboutActivity : AppCompatActivity() {
                 "Araç park halindeyken GPS kapalıdır (pil ve ısı tasarrufu). Uyandıran şeyler: şarjın takılması, telefonun hareket sensörü ve 15 dakikalık alarm. " +
                 "Kontak açıkken ek olarak her dakika 20 saniyelik kısa bir GPS yoklaması yapılır; sensör kaçırsa da hareket yakalanır.\n\n" +
                 "Her 15 dakikada DURUM kaydı atılır. Konumu, son iyi konumların ortası (medyanı) olarak yazılır; böylece park halinde harita üzerinde zıplama olmaz.",
+
+            "Örnek: Kapalı otopark" to
+                "17:00 Araç hareket halinde kapalı otoparka girer, GPS kaybolur. 17:01'de tek bir KONUM_ALINAMADI yazılır. " +
+                "Uygulama \"durdu\" kararı vermez (tünel de böyle görünür). En geç yaklaşık 17:30'dan itibaren 15 dakikada bir DURUM yazılır: " +
+                "son bilinen konum, konumun yaşı ve pil bilgisiyle. GPS geri gelince normal kayıtlara dönülür.",
 
             "Örnek 4: Aşırı sıcak" to
                 "Karar pil sıcaklığına göre verilir.\n" +

@@ -29,6 +29,7 @@ import com.emekli.robot.core.Config
 import com.emekli.robot.core.CornerDetector
 import com.emekli.robot.core.Fix
 import com.emekli.robot.core.FixFilter
+import com.emekli.robot.core.Heartbeat
 import com.emekli.robot.core.LogTypes
 import com.emekli.robot.core.MovementDetector
 import com.emekli.robot.core.ParkedPosition
@@ -525,7 +526,12 @@ class TrackerEngine(
     private fun doHeartbeat() {
         wake.acquire(Config.FIX_TIMEOUT_MS + 30_000)
         trimQueue()
-        if (movement.moving) return // hareketteyken KONUM kayıtları zaten akıyor
+        if (movement.moving) {
+            // KONUM kayıtları akıyorsa gerek yok. Konum uzun süredir yoksa (kapalı otopark) iz kesilmesin:
+            // son bilinen konum gerçek yaşıyla yazılır, hareket durumu değiştirilmez.
+            if (Heartbeat.durumWhileMoving(lastLoc?.let { ageMs(it) })) record(LogTypes.DURUM)
+            return
+        }
 
         val age = lastLoc?.let { ageMs(it) }
         val needFix = gpsAllowed() && (age == null || age > Config.STALE_FIX_MS)

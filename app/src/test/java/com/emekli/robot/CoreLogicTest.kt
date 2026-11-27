@@ -684,4 +684,13 @@ class CoreLogicTest {
         assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(false, N, false, allowUnplugged = true))
         assertFalse(com.emekli.robot.sync.CommandPoller.shouldPoll(true, H, false, allowUnplugged = true))
     }
+
+    @Test fun heartbeat_writesDurumWhileMovingOnlyWhenFixIsStale() {
+        val limit = Config.MOVING_NO_FIX_DURUM_MS
+        assertFalse(com.emekli.robot.core.Heartbeat.durumWhileMoving(0))
+        assertFalse(com.emekli.robot.core.Heartbeat.durumWhileMoving(limit - 1))
+        assertTrue(com.emekli.robot.core.Heartbeat.durumWhileMoving(limit))
+        assertTrue(com.emekli.robot.core.Heartbeat.durumWhileMoving(16 * 3600_000L))
+        assertTrue(com.emekli.robot.core.Heartbeat.durumWhileMoving(null))
+    }
 }
