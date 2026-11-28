@@ -68,6 +68,34 @@ object Config {
     const val CRIT_ON_C = 48.0
     const val CRIT_OFF_C = 46.0
 
+    // Olası darbe (darbe adayı), Aşama 1: yalnız telefonda veri toplar.
+    // EŞİKLER DOĞRULANMAMIŞ BAŞLANGIÇ DEĞERLERİDİR; gerçek sürüş verisiyle ayarlanacak.
+    const val IMPACT_TRIGGER_G = 2.5             // doğrusal ivme: aday kaydı
+    const val IMPACT_STRONG_G = 4.0              // doğrusal ivme: OLASI_DARBE için en az tepe
+    const val IMPACT_DURATION_G = 1.5            // süre ve Δv bu düzeyin üstünde ölçülür
+    const val IMPACT_FREEFALL_G = 0.3            // HAM ivme büyüklüğü
+    const val IMPACT_FREEFALL_MIN_MS = 120.0
+    const val IMPACT_MIN_SPEED_KMH = 20.0
+    const val IMPACT_LOSS_MIN_DROP_KMH = 15.0    // belirgin hız kaybı: en az bu kadar düşüş
+    const val IMPACT_LOSS_MAX_RATIO = 0.5        // ve önceki hızın en çok bu oranına
+    const val IMPACT_LOSS_WINDOW_MS = 15_000L
+    const val IMPACT_SPEED_STALE_MS = 5_000L     // darbe öncesi hız bundan eskiyse yok sayılır
+    const val IMPACT_SATURATION_RATIO = 0.98f    // eksen tavanın bu oranına ulaşırsa "doymuş"
+    const val IMPACT_LOW_CEILING_G = 4.05        // tavan bu ya da altındaysa kullanıcı uyarılır
+    const val IMPACT_GRAVITY_TAU_S = 0.5f        // yerçekimi süzgeci zaman sabiti
+    const val IMPACT_GRAVITY_GATE_G = 0.25f      // süzgeç yalnız |ham-1G| bundan küçükken güncellenir
+    const val IMPACT_SAMPLING_US = 5_000         // 200 Hz; daha hızlısı ek izin ister
+    const val IMPACT_RING_SAMPLES = 12_288       // 500 Hz'e kadar 20 sn'den uzun pencere
+    const val IMPACT_PRE_MS = 10_000L
+    const val IMPACT_POST_MS = 10_000L
+    const val IMPACT_MERGE_MS = 30_000L
+    const val IMPACT_GPS_BEFORE_MS = 30_000L
+    const val IMPACT_GPS_AFTER_MS = 120_000L
+    const val IMPACT_AFTER_STOP_MS = 3 * 60_000L
+    const val IMPACT_UNPLUGGED_FIX_MAX_AGE_MS = 15 * 60_000L
+    const val IMPACT_MAX_EVENTS = 50
+    const val IMPACT_MAX_BYTES = 20L * 1024 * 1024
+
     // Kuyruk ve gönderim
     const val QUEUE_CAP = 200_000
     const val BATCH_SIZE = 200

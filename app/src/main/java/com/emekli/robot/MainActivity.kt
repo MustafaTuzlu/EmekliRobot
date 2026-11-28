@@ -82,6 +82,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnUsage).setOnClickListener {
             startActivity(Intent(this, UsageActivity::class.java))
         }
+        findViewById<Button>(R.id.btnImpact).setOnClickListener {
+            startActivity(Intent(this, ImpactActivity::class.java))
+        }
         findViewById<Button>(R.id.btnUpdate).setOnClickListener {
             startActivity(Intent(this, UpdateActivity::class.java))
         }
@@ -132,6 +135,8 @@ class MainActivity : AppCompatActivity() {
         b.append("Yoklama     : ").append(
             if (rt.plugged == true) "kontak açık: her 60 sn 20 sn GPS + sensör" else "kontak kapalı: sensör + 15 dk",
         ).append('\n')
+
+        b.append("Darbe algıla : ").append(rt.impactStatus).append('\n')
 
         b.append("Komut yoklama: ").append(CommandPoller.status.value).append('\n')
 

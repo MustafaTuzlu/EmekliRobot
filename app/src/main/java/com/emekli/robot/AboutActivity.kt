@@ -60,6 +60,18 @@ class AboutActivity : AppCompatActivity() {
                 "okunur ve saatlik kovaya eklenir; ek pil harcamaz. Veriler yalnızca telefonda tutulur, siteye gönderilmez; \"Sıfırla\" ile silinir.\n\n" +
                 "Örnek: Bu ay 6,4 MB görünüyorsa, SIM'li bir hatta uygulama bu ay yaklaşık 6,4 MB kota harcamış demektir.",
 
+            "Darbe adayları (deneme)" to
+                "Telefon, sensörlerle olası darbeleri yakalayıp yalnız kendi üstünde saklar; sunucuya hiçbir şey göndermez. " +
+                "Bu bir kaza tespiti DEĞİLDİR; eşikler henüz doğrulanmadı, amaç gerçek sürüş verisi toplamaktır. Arama, SMS ya da bildirim yapmaz.\n\n" +
+                "Ne zaman çalışır: şarj takılıyken; şarj yokken araç hareketliyse (son 15 dakikada konum alınmışsa) ve durduktan sonra 3 dakika. " +
+                "Aşırı sıcaklıkta (KRİTİK), pil %5 altında ve ayardan kapatılınca çalışmaz. Çalışırken işlemci uyanık tutulur, bu pil harcar. " +
+                "Ana ekrandaki \"Darbe algıla\" satırı gerçek örnekleme hızını ve sensör tavanını gösterir.\n\n" +
+                "Kayıt: ivme 2,5 G'yi geçince aday oluşur; öncesindeki ve sonrasındaki 10 saniyenin sensör verisi, 30 saniye öncesinden 2 dakika sonrasına kadar GPS saklanır. " +
+                "30 saniye içindeki darbeler tek olaydır. En çok 50 kayıt (20 MB) tutulur; \"Sakla\" işaretliler silinmez.\n\n" +
+                "Etiketler: \"Olası darbe\" (4 G üstü, önce en az 20 km/sa, sonra belirgin hız kaybı), \"Telefon düşmesi şüphesi\" (darbeden önce serbest düşüş, hız kaybı yok), " +
+                "diğer her şey \"Belirlenemedi\".\n\n" +
+                "Örnek: Kasisten geçtiniz, listede bir kayıt görürseniz dokunup gerçek durumu \"Kasis / çukur\" seçin. Kayıtları seçip \"Paylaş\" ile dosya olarak alabilirsiniz; dosyada konum bilgisi vardır.",
+
             "Güncelleme" to
                 "Ana ekrandaki \"Güncellemeyi kontrol et\" butonu sunucudaki sürümü sorar. Yeni sürüm varsa APK'yı indirir, " +
                 "SHA-256 ve paket bilgisiyle doğrular, sonra Android'in kurulum ekranını açar; \"Yükle\"ye basmanız gerekir " +

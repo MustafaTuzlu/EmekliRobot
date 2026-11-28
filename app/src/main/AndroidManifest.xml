@@ -56,6 +56,10 @@
         </provider>
 
         <activity
+            android:name=".ImpactActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".UsageActivity"
             android:exported="false" />
 

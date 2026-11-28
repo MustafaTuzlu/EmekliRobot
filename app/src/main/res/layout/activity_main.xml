@@ -172,6 +172,13 @@
                 android:text="Veri kullanımı" />
 
             <Button
+                android:id="@+id/btnImpact"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Darbe adayları" />
+
+            <Button
                 android:id="@+id/btnUpdate"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"

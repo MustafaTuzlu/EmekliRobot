@@ -72,6 +72,13 @@
             android:layout_marginTop="12dp"
             android:text="Şarjda değilken de &quot;son durumu göster&quot; isteğini yokla (internet varken, pil tüketimi çok az)" />
 
+        <CheckBox
+            android:id="@+id/checkImpact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Olası darbe verisi topla (deneme; yalnız telefonda kalır, araç hareketliyken ya da şarjdayken sensörler açık)" />
+
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"

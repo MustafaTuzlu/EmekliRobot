@@ -43,6 +43,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_POLL_UNPLUGGED, true)
         set(value) = prefs.edit().putBoolean(KEY_POLL_UNPLUGGED, value).apply()
 
+    /** Olası darbe algılama (yalnız telefonda veri toplar). Varsayılan: açık. */
+    var impactEnabled: Boolean
+        get() = prefs.getBoolean(KEY_IMPACT, true)
+        set(value) = prefs.edit().putBoolean(KEY_IMPACT, value).apply()
+
     /** Ad girilmediyse kullanılacak otomatik ad (düzenleme kutusunda ipucu olarak gösterilir). */
     val autoName: String = DeviceName.auto(
         Build.MANUFACTURER, Build.MODEL,
@@ -65,5 +70,6 @@ class SettingsStore(context: Context) {
         private const val KEY_API_KEY = "api_key"
         private const val KEY_DEVICE = "device_name"
         private const val KEY_POLL_UNPLUGGED = "poll_unplugged"
+        private const val KEY_IMPACT = "impact_enabled"
     }
 }

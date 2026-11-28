@@ -30,6 +30,7 @@ import com.emekli.robot.core.CornerDetector
 import com.emekli.robot.core.Fix
 import com.emekli.robot.core.FixFilter
 import com.emekli.robot.core.Heartbeat
+import com.emekli.robot.core.ImpactPolicy
 import com.emekli.robot.core.LogTypes
 import com.emekli.robot.core.MovementDetector
 import com.emekli.robot.core.ParkedPosition
@@ -98,6 +99,11 @@ class TrackerEngine(
     private var durumGotFix = false
     private var durumGoodUntil = 0L
 
+    // Olası darbe algılama (yalnız telefonda veri toplar)
+    private var wasMoving = false
+    private var stoppedAtElapsedMs: Long? = null
+    private val impact = ImpactRecorder(ctx, ::impactInputs)
+
     private var gpsMode = GpsMode.OFF
     private var currentInterval = 0L
     private var probeUntil = 0L
@@ -132,6 +138,7 @@ class TrackerEngine(
         if (!started) return
         started = false
         main.removeCallbacksAndMessages(null)
+        impact.shutdown()
         runCatching { ctx.unregisterReceiver(batteryReceiver) }
         runCatching { motionSensor?.let { sensors.cancelTriggerSensor(motionListener, it) } }
         stopUpdates()
@@ -362,6 +369,7 @@ class TrackerEngine(
         val fix = buildFix(loc)
         val sats = satellites(loc)
         if (isMock(loc) || (sats in 0 until Config.MIN_SATELLITES)) {
+            impact.onGps(loc, sats, rejected = true)
             rejectFix(fix)
             return null
         }
@@ -369,11 +377,13 @@ class TrackerEngine(
         when (FixFilter.check(prev, fix)) {
             FixFilter.Verdict.DUPLICATE -> return null
             FixFilter.Verdict.POOR_ACCURACY -> {
+                impact.onGps(loc, sats, rejected = true)
                 rejectFix(fix)
                 return null
             }
             FixFilter.Verdict.IMPLAUSIBLE_JUMP -> {
                 if (++consecutiveJumps < Config.MAX_CONSECUTIVE_JUMPS) {
+                    impact.onGps(loc, sats, rejected = true)
                     rejectFix(fix)
                     return null
                 }
@@ -382,6 +392,7 @@ class TrackerEngine(
             FixFilter.Verdict.OK -> {}
         }
         consecutiveJumps = 0
+        impact.onGps(loc, sats, rejected = false)
         lastLoc = loc
         lastFix = fix
         lastFixElapsedMs = SystemClock.elapsedRealtime()
@@ -682,7 +693,23 @@ class TrackerEngine(
         pi.cancel()
     }
 
+    private fun impactInputs(): ImpactPolicy.Inputs {
+        val now = SystemClock.elapsedRealtime()
+        return ImpactPolicy.Inputs(
+            enabled = true, // ayarı kaydedici okur
+            thermal = thermalStable.committed,
+            plugged = chargeStable.committed,
+            batteryPct = battery.pct,
+            moving = movement.moving,
+            lastFixAgeMs = lastLoc?.let { ageMs(it) },
+            sinceStopMs = stoppedAtElapsedMs?.let { now - it },
+        )
+    }
+
     private fun publish() {
+        if (wasMoving && !movement.moving) stoppedAtElapsedMs = SystemClock.elapsedRealtime()
+        wasMoving = movement.moving
+        if (started) impact.evaluate()
         val loc = lastLoc
         RuntimeState.update {
             it.copy(

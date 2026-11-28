@@ -29,6 +29,8 @@ data class RuntimeSnapshot(
     /** Son fix'in ham hız (m/s) ve yönü; yaş kuralı anlık durum kurulurken uygulanır. */
     val speedMps: Double? = null,
     val bearingDeg: Double? = null,
+    /** Olası darbe algılamanın durumu: sensör tavanı ve gerçek örnekleme hızı dahil. Sunucuya gitmez. */
+    val impactStatus: String = "?",
 )
 
 object RuntimeState {
